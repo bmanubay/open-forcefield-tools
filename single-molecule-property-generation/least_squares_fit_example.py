@@ -282,7 +282,7 @@ def readtraj(ncfiles):
     return data, xyz, time 
 
 #------------------------------------------------------------------
-P = np.pi/3.
+P = 2.*2.*np.pi/3.
 def fourier(x, *a):
     ret =  a[0] * (np.sin(2*np.pi*x / P + a[1]))**2 + \
            a[2] * (np.sin(2*np.pi*x / P + a[3]))**2 + \
