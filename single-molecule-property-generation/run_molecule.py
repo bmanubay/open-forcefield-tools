@@ -56,7 +56,7 @@ for ind,j in enumerate(mol_filename):
 
     paramlist = np.arange(float(sys.argv[2]),float(sys.argv[3]),float(sys.argv[4]))
     smirkseries = sys.argv[5]#'[#6X4:1]-[#1:2]'
-    paramtype = 'k'
+    paramtype = 'k1'
 
 
     param = forcefield.getParameter(smirks=smirkseries)

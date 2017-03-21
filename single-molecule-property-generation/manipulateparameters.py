@@ -734,7 +734,7 @@ K = np.size(N_k)
 
 N_max = np.max(N_k)
 
-K_extra_vals = np.arange(0.99,1.20,0.01)
+K_extra_vals = np.arange(0.08,0.25,0.01)
 
 #K_k = np.array([[106], [104], [102], [100], [98]])
 #K_k = np.array([[104.],[100.]])
@@ -747,8 +747,8 @@ K_k = np.array([[[1.090]] for val in K_extra_vals])
 #K_extra = np.array([[600.]])
 K_extra = np.array([[[val]] for val in K_extra_vals])
 
-paramtype = [['length']]
-obstype = 'Bond'
+paramtype = [['k1']]
+obstype = 'Torsion'
 
 #mol2 = [['molecules/AlkEthOH_r0.mol2'],['molecules/AlkEthOH_r48.mol2'],['molecules/AlkEthOH_r51.mol2'],['molecules/AlkEthOH_c581.mol2'],['molecules/AlkEthOH_c100.mol2'],['molecules/AlkEthOH_c1161.mol2'],['molecules/AlkEthOH_c1266.mol2'],['molecules/AlkEthOH_c38.mol2'],['molecules/AlkEthOH_r118.mol2'],['molecules/AlkEthOH_r12.mol2']]
 #mol2 = [['molecules/AlkEthOH_r0.mol2'],['molecules/AlkEthOH_c581.mol2'],['molecules/AlkEthOH_c100.mol2'],['molecules/AlkEthOH_c1266.mol2'],['molecules/AlkEthOH_r51.mol2'],['molecules/AlkEthOH_r48.mol2']]
@@ -767,12 +767,12 @@ traj = ['traj4ns/'+sys.argv[1]+'.nc']
 #trajs = [['traj/AlkEthOH_r0.nc'],['traj/AlkEthOH_c581.nc']]
 trajs = [[val] for val in traj]
 
-smirkss = ['[#6X4:1]-[#1:2]']
+smirkss = ['[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]']
 
 trajstest = [[[] for i in K_extra] for _ in traj]
 for ind,val in enumerate(trajs):
     for ind1,val1 in enumerate(K_extra):
-        trajstest[ind][ind1] = [val[0][:-3]+'_'+smirkss[0]+'_length'+str(val1[0][0])+'.nc']
+        trajstest[ind][ind1] = [val[0][:-3]+'_'+smirkss[0]+'_k1'+str(val1[0][0])+'.nc']
 
 # Calculate energies at various parameters of interest
 #energies, xyzn, system = new_param_energy(mol2en,traj, smirkss, N_k, K_k, paramtype, N_max)
@@ -817,7 +817,7 @@ dA_boot_new_sampdf = []
 # Return AtomDict needed to feed to ComputeBondsAnglesTorsions()
 for ind,(i,j) in enumerate(zip(mol2,traj)):
     AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(i, [j]) 
-    mylist = [ii[1] for ii in lst_0[0]] 
+    mylist = [ii[1] for ii in lst_2[0]] 
     myset = set(mylist)
     poplist = np.zeros([len(myset)],np.float64) 
     for b,k in enumerate(myset):
@@ -830,10 +830,11 @@ for ind,(i,j) in enumerate(zip(mol2,traj)):
     
     print '#################################################################################'
     Atomdictmatches = []
-    for sublist in lst_0[0]:    
+    for sublist in lst_2[0]:    
         if sublist[1] == smirkss[0]:
             Atomdictmatches.append(sublist[0])  
     if not Atomdictmatches:
+        print 'No matches found'
         continue 
     
     Atomdictmatchinds = []
@@ -947,9 +948,9 @@ for ind,(i,j) in enumerate(zip(mol2,traj)):
                                 count += 1
                
         # Post process energy distributions to find expectation values, analytical uncertainties and bootstrapped uncertainties
-        T_from_file = read_col('StateData/data.csv',["Temperature (K)"],100)
-        Temp_k = T_from_file
-        T_av = np.average(Temp_k)
+        #T_from_file = read_col('StateData/data.csv',["Temperature (K)"],100)
+        Temp_k = 300.#T_from_file
+        T_av = 300.#np.average(Temp_k)
 
         nBoots = 200
 
