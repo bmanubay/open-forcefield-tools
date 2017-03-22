@@ -236,8 +236,9 @@ def get_small_mol_dict(mol2, traj):
     AtomDict = dict()
     AtomDict['MolName'] = list()
     for fname in traj:
-        MoleculeName = fname.split('.')[0].split('/')[1]#.rsplit('_',1) 
-        AtomDict['MolName'].append(MoleculeName)
+        MoleculeName = fname.split('.')[0].split('/')[1].rsplit('_')
+        MoleculeName = MoleculeName[0] + '_' + MoleculeName[1]
+	AtomDict['MolName'].append(MoleculeName)
          	
         
         # what is the property list for this molecule
@@ -303,7 +304,7 @@ ff = ForceField(get_data_filename('/data/forcefield/smirff99Frosst.ffxml'))
 mol2 = ['molecules/AlkEthOH_c1143.mol2', 'molecules/AlkEthOH_c1143.mol2']
 traj = ['traj4ns/AlkEthOH_c1143.nc', 'traj4ns/AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k0.24.nc']
 
-AtomDict_r48, OEMol_r48, cols2_r48 = get_small_mol_dict([mol2[0]], [traj[0]])
+AtomDict_r48, OEMol_r48, cols2_r48 = get_small_mol_dict([mol2[1]], [traj[1]])
 #AtomDict_r51, OEMol_r51, cols2_r51 = get_small_mol_dict([mol2[1]], [traj[1]])
 labels_r48 = []
 for ind, val in enumerate(OEMol_r48):
@@ -440,21 +441,21 @@ plt.ylabel('Number of times configuration is sampled')
 plt.xlabel('Torsion angle (radians)')
 plt.title('Torsion sample in AlkEthOH_c1143')
 plt.legend()
-plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_a.png')
+plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_a_highk.png')
 
 plt.figure()
 plt.hist(torsion_r48_b,num_bins,label='AlkEthOH_c1143')
 plt.ylabel('Likelihood that configuration is sampled')
 plt.xlabel('Torsion angle (radians)')
 plt.title('Torsion sample in AlkEthOH_c1143')
-plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_b.png')
+plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_b_highk.png')
 
 plt.figure()
 plt.hist(torsion_r48_c,num_bins,label='AlkEthOH_r48')
 plt.ylabel('Likelihood that configuration is sampled')
 plt.xlabel('Torsion angle (radians)')
 plt.title('Torsion sample in AlkEthOH_c1143')
-plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_c.png')
+plt.savefig('torsion_histograms/c1143/Torsion_likelihood_c1143_tors_c_highk.png')
 
 #plt.figure()
 #plt.hist(torsion_r51_a,num_bins,label='AlkEthOH_r51',color='green')
