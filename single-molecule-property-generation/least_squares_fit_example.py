@@ -329,7 +329,7 @@ data_r48, xyz_r48, time_r48 = readtraj([traj[0]])
 #data_r51, xyz_r51, time_r51 = readtraj([traj[1]])
 #print len(xyz_r51)
 
-xyzn_r48 = unit.Quantity(xyz_r48[-5000:], unit.angstroms)
+xyzn_r48 = unit.Quantity(xyz_r48[:], unit.angstroms)
 #time_r48 = unit.Quantity(time_r48[:], unit.picoseconds)
 #xyzn_r51 = unit.Quantity(xyz_r51[:9238], unit.angstroms)
 #time_r51 = unit.Quantity(time_r51[:9238], unit.picoseconds)
@@ -431,7 +431,7 @@ plt.figure()
 #	if j==0.:
 #           n1[i]=5.
 
-popt, pcov = sci.curve_fit(fourier, bins1[1:], n1, [100.0,3.0,100.0]*3 , maxfev=100000)
+popt, pcov = sci.curve_fit(fourier, bins1[1:], n1, [100.0,3.0,1000.0]*3 , maxfev=100000)
 plt.plot(bins1[1:],fourier(bins1[1:],*popt),label='AlkEthOH_r48 fourier fit')
 plt.ylabel('Number of times configuration is sampled')
 plt.xlabel('Torsion angle (radians)')
