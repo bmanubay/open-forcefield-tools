@@ -105,6 +105,16 @@ def sampler(data, samples=4, mu_init=.5, proposal_width=.5, plot=False, mu_prior
     3)Prior
         a)Start with uniforms with physically relevant bounds for given parameter
         b)Informationless priors
+  
+    Expanding initial knowledge region using MBAR
+    1) Simulate single thermodynamic state
+    2) Use MBAR to reweight in parameter space
+        a) Will go to full extent of parameters within region where we know MBAR estimates are good
+        b) Reweighting at multiple steps to full extent and along diagonals between parameters in order to create grid of points of evidence
+        c) Now we cheaply achieved a region of evidence vs a single point
+    3) Can fit our hypercube to multiple planes
+        a) Assuming trends in very local space will be incredibly linear
+        b) Probably a pretty safe assumption given minute change in parameter
     """
     mu_current = mu_init
     posterior = [mu_current]
