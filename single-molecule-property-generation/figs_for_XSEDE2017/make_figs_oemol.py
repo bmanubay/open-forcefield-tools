@@ -12,7 +12,7 @@ smiles = ["C","CC","CCC","COC","CCOC","C1COC1","CO","CCO","CCCO","CC(C)O","O"]
 
 image = OEImage(400, 400)
 
-rows, cols = 6, 2
+rows, cols = 2, 6
 grid = OEImageGrid(image, rows, cols)
 grid.SetMargins(5)
 
