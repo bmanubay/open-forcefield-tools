@@ -10,7 +10,7 @@ def DrawCellNumber(cell, idx):
 
 smiles = ["C","CC","CCC","COC","CCOC","C1COC1","CO","CCO","CCCO","CC(C)O","O"] 
 
-image = OEImage(200, 200)
+image = OEImage(800, 800)
 
 rows, cols = 6, 2
 grid = OEImageGrid(image, rows, cols)
