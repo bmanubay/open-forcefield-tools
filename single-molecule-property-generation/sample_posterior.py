@@ -23,7 +23,7 @@ from openeye import oechem
 from smarty import *
 from smarty.utils import get_data_filename
 from simtk import openmm as mm
-from simtk.unit import *
+from simtk import unit 
 from simtk.openmm import app
 from simtk.openmm import Platform
 import time
@@ -83,7 +83,7 @@ def read_traj(ncfiles,indkeep=100000000):
     xyzn - the coordinates from the netcdf in angstroms
     """
 
-    data = netcdf.Dataset(ncfiles)
+    data = netcdf.Dataset(ncfiles) 
     xyz = data.variables['coordinates']
     xyzn = unit.Quantity(xyz[-indkeep:], unit.angstroms)
 
@@ -200,9 +200,9 @@ def read_or_run(optparam):
         data, xyzn = read_traj(traj_name)                                     
     return AlkEthOH_IDs, param_list, xyzn
 #----------------------------------------------------------------------
-read_or_run(optparam = {'AlkEthOH_c1143':[['[#6X4:1]-[#1:2]','k','650'],
-                                          ['[#6X4:1]-[#1:2]','length','1.1'],
-                                          ['[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]','k1','0.2']]})
+#read_or_run(optparam = {'AlkEthOH_c1143':[['[#6X4:1]-[#1:2]','k','650'],
+#                                          ['[#6X4:1]-[#1:2]','length','1.1'],
+#                                          ['[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]','k1','0.2']]})
 
 ##########################################################################################################################
 ##########################################################################################################################
@@ -365,8 +365,7 @@ def ComputeBondsAnglesTorsions(xyz, bonds, angles, torsions):
     bond_dist, angle_dist, torsion_dist - computed bonds, angles and torsions across the provided time series
     """
 
-    niterations = xyz.shape[0] # no. of frames
-    natoms = xyz.shape[1]
+    niterations = len(xyz)#.shape[0] # no. of frames
     
     nbonds = np.shape(bonds)[0]
     nangles = np.shape(angles)[0]
@@ -375,7 +374,7 @@ def ComputeBondsAnglesTorsions(xyz, bonds, angles, torsions):
     angle_dist = np.zeros([niterations,nangles])
     torsion_dist = np.zeros([niterations,ntorsions])
 
-    for n in range(niterations):
+    for n in range(niterations): 
         xyzn = xyz[n] # coordinates this iteration
         bond_vectors = np.zeros([nbonds,3])
 	for i, bond in enumerate(bonds): 
@@ -654,23 +653,17 @@ def get_energy(system, positions):
 
 #------------------------------------------------------------------
 
-def new_param_energy(mol2, traj, smirkss, N_k, params, paramtype, samps, indkeep, *coords):
+def new_param_energy(coords, params):
     """
     Return potential energies associated with specified parameter perturbations.
     Parameters
     ----------
-    mol2: mol2 file associated with molecule of interest used to construct OEMol object
-    traj: trajectory from the simulation ran on the given molecule
-    smirkss: list of smirks strings we wish to apply parameter changes to (Only changing 1 type of string at a time now. All bonds, all angles or all torsions)
-    N_k: numpy array of number of samples per state
-    params: a numpy array of the parameter values we wish to test
-    paramtype: the type of ff param being edited
-        BONDS - k (bond force constant), length (equilibrium bond length) 
-        ANGLES - k (angle force constant), angle (equilibrium bond angle)
-        TORSIONS - k{i} (torsion force constant), idivf{i} (torsional barrier multiplier), periodicity{i} (periodicity of the torsional barrier), phase{i} 
-                   (phase offset of the torsion)
-        NONBONDED - epsilon and rmin_half (where epsilon is the LJ parameter epsilon and rmin_half is half of the LJ parameter rmin)
-    samps: samples per energy calculation
+    coords: coordinates from the simulation(s) ran on the given molecule
+    params:  arbitrary length dictionary of changes in parameter across arbitrary number of states. Highest level key is the molecule AlkEthOH_ID,
+             second level of keys are the new state, the values of each of these subkeys are a arbitrary length list of length 3 lists where the 
+             length 3 lists contain information on a parameter to change in the form: [SMIRKS, parameter type, parameter value]. I.e. :
+    
+             params = {'AlkEthOH_c1143':{'State 1':[['[6X4:1]-[#1:2]','k','620'],['[6X4:1]-[#6X4:2]','length','1.53'],...],'State 2':[...],...}}
     Returns
     -------
     energies: a list of the energies associated with the forcfield parameters used as input
@@ -679,12 +672,15 @@ def new_param_energy(mol2, traj, smirkss, N_k, params, paramtype, samps, indkeep
     # PARAMETERS
     #-------------------
     params = params
-    N_k = N_k
-    ncfiles = traj
+   
+    # Determine number of states we wish to estimate potential energies for
+    mols = []
+    for i in params: 
+        mols.append(i)
+    mol = 'Mol2_files/'+mols[0]+'.mol2' 
+    K = len(params[mols[0]].keys())
     
 
-    # Determine number of simulations
-    K = np.size(N_k)
     #if np.shape(params) != np.shape(N_k): raise "K_k and N_k must have same dimensions"
 
 
@@ -694,7 +690,7 @@ def new_param_energy(mol2, traj, smirkss, N_k, params, paramtype, samps, indkeep
     # SYSTEM SETUP
     #-------------
     verbose = False # suppress echos from OEtoolkit functions
-    ifs = oechem.oemolistream(mol2)
+    ifs = oechem.oemolistream(mol)
     mol = oechem.OEMol()
     # This uses parm@frosst atom types, so make sure to use the forcefield-flavor reader
     flavor = oechem.OEIFlavor_Generic_Default | oechem.OEIFlavor_MOL2_Default | oechem.OEIFlavor_MOL2_Forcefield
@@ -702,15 +698,7 @@ def new_param_energy(mol2, traj, smirkss, N_k, params, paramtype, samps, indkeep
     oechem.OEReadMolecule(ifs, mol )
     # Perceive tripos types
     oechem.OETriposAtomNames(mol)
-
-    # Get positions for use below
-    if not coords:
-        data, xyz = readtraj(traj,indkeep)
-        #indkeep = int(lentraj*perckeep)
-        xyzn = xyz[-indkeep:]
-    else:
-        xyzn = coords
-     
+ 
     # Load forcefield file
     ffxml = get_data_filename('forcefield/smirff99Frosst.ffxml')
     ff = ForceField(ffxml)
@@ -725,33 +713,60 @@ def new_param_energy(mol2, traj, smirkss, N_k, params, paramtype, samps, indkeep
 
     # Calculate energies 
     
-    energies = np.zeros([len(smirkss),len(params),samps],np.float64)
-    for inds,s in enumerate(smirkss):
-        temp0 = np.zeros([len(params),samps],np.float64)
-        param = ff.getParameter(smirks=s)
-        for ind,val in enumerate(params):
-            for p in paramtype:
-                temp1 = np.zeros(samps,np.float64)
-                for a,b in zip(val,p):
-                    param[b] = str(a)      
-                ff.setParameter(param, smirks = s)
-                system = ff.createSystem(topology, [mol], verbose=verbose)
-                for i,a in enumerate(xyzn): 
-                    e = np.float(get_energy(system, a))
-                    energies[inds,ind,i] = e
+    energies = np.zeros([K,len(coords)],np.float64)
+    for i,j in enumerate(params):
+        AlkEthOH_id = j    
+        for k,l in enumerate(params[AlkEthOH_id]):
+            for m,n in enumerate(params[AlkEthOH_id][l]):
+                newparams = ff.getParameter(smirks=n[0])
+                newparams[n[1]]=n[2]
+                ff.setParameter(newparams,smirks=n[0]) 
+                system = ff.createSystem(topology, [mol])
+                for o,p in enumerate(positions):
+                    e = np.float(get_energy(system,p))
+                    energies[m,o] = e
+       # temp0 = np.zeros([len(params),samps],np.float64)
+       # param = ff.getParameter(smirks=s)
+       # for ind,val in enumerate(params):
+       #     for p in paramtype:
+       #         temp1 = np.zeros(samps,np.float64)
+       #         for a,b in zip(val,p):
+       #             param[b] = str(a)      
+       #         ff.setParameter(param, smirks = s)
+       #         system = ff.createSystem(topology, [mol], verbose=verbose)
+       #         for i,a in enumerate(xyzn): 
+       #             e = np.float(get_energy(system, a))
+       #             energies[inds,ind,i] = e
    
-    return energies, xyzn, system
+    return energies,system
+
+#------------------------------------------------------------------
+ncfiles = glob.glob('*.nc')
+mol2 = 'Mol2_files/AlkEthOH_c1143'
+positions = []
+for i,j in enumerate(ncfiles):
+    data, xyz = read_traj(j)
+    for pos in xyz:
+       positions.append(pos)
+#for i,j in enumerate(positions):
+#    print j
+#    if i > 1:
+#        break 
+print len(positions)
+params = {'AlkEthOH_c1143':{'State 1':[['[#6X4:1]-[#1:2]','k','620'],['[#6X4:1]-[#6X4:2]','length','1.53']],
+                            'State 2':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#6X4:2]','length','1.60']]}}
+
+energies,system = new_param_energy(positions, params)
 
 #------------------------------------------------------------------
 
-def get_small_mol_dict(mol2, traj):
+def get_small_mol_dict(mol2):
     """
     Return dictionary specifying the bond, angle and torsion indices to feed to ComputeBondsAnglesTorsions()
     Parameters
     ----------
     mol2: mol2 file associated with molecule of interest used to determine atom labels
-    traj: trajectory from the simulation ran on the given molecule
-     
+         
     Returns
     -------
     AtomDict: a dictionary of the bond, angle and torsion indices for the given molecule
@@ -776,8 +791,8 @@ def get_small_mol_dict(mol2, traj):
    
     AtomDict = dict()
     AtomDict['MolName'] = list()
-    for fname in traj:
-        MoleculeName = fname.split('.')[0][8:]
+    for fname in mol2:
+        MoleculeName = fname.split('/')[-1].rsplit('.')[0]
         AtomDict['MolName'].append(MoleculeName)
          	
         
@@ -795,7 +810,7 @@ def get_small_mol_dict(mol2, traj):
             PropertyName = p.split(' ', 1)[0]
             AtomList = p.split(' ', 1)[1:]
             AtomList = [i.lstrip('[').rstrip(']') for i in AtomList]
-	    for i in AtomList:
+    	    for i in AtomList:
                 AtomList = i.strip().split(',')
             AtomList = map(int, AtomList) 
             if any(rp in p for rp in ReferenceProperties):
@@ -807,6 +822,8 @@ def get_small_mol_dict(mol2, traj):
                      AtomDict['Torsion'].append(AtomList)
 
     return AtomDict,lst_0,lst_1,lst_2
+
+AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
 
 #------------------------------------------------------------------
 
@@ -842,8 +859,7 @@ def subsampletimeseries(timeser,xyzn,N_k):
      
     N_k_sub = np.array([len(timeseries.subsampleCorrelatedData(t,g=b)) for t, b in zip(ts,g)])
     ind = [timeseries.subsampleCorrelatedData(t,g=b) for t,b in zip(ts,g)]
-    
-    #xyz_sub = np.array([unit.Quantity(c[i], unit.angstroms) for c,i in zip(xyz,ind)])
+     
     if (N_k_sub == N_k).all():
         ts_sub = ts
         xyz_sub = xyz
@@ -851,11 +867,631 @@ def subsampletimeseries(timeser,xyzn,N_k):
     else:
         print "Sub-sampling..." 
         ts_sub = np.array([t[timeseries.subsampleCorrelatedData(t,g=b)] for t,b in zip(ts,g)])
-        for c in xyz:
-            xyz_sub = [c[timeseries.subsampleCorrelatedData(t,g=b)] for t,b in zip(ts,g)]
+        #for c in xyz:
+        #    xyz_sub = [c[timeseries.subsampleCorrelatedData(t,g=b)] for t,b in zip(ts,g)]
+        for i,j in enumerate(xyz):
+            xyz_sub = [j[ii] for ii in ind[i]]
+            
     return ts_sub, N_k_sub, xyz_sub, ind
 
+ts_sub,N_k_sub,xyz_sub,ind = subsampletimeseries([energies[0],energies[1]],[positions,positions],[10000,10000])
+obs = ComputeBondsAnglesTorsions(positions,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]
+print [bond[0] for bond in obs]
+sys.exit()
 #------------------------------------------------------------------
+def calc_u_kn(xyzn,params,T=300.,):
+    """
+    Given a kxN matrix of coordinates, calculate full u_kn matrix for arbitrary number of new states.
+    Where k is the original number of states and N is the length of each trajectory.
+    -------------
+    xyzn - kxN matrix of coordinates representing all configurations visited from the original states
+    params - Arbitrary length dictionary of changes in parameter across arbitrary number of states. Highest level key is the molecule AlkEthOH_ID,
+             second level of keys are the new state, the values of each of these subkeys are a arbitrary length list of length 3 lists where the 
+             length 3 lists contain information on a parameter to change in the form: [SMIRKS, parameter type, parameter value]. I.e. :
+    
+             params = {'AlkEthOH_c100':{'State 1':[['[6X4:1]-[#1:2]','k','620'],['[6X4:1]-[#6X4:2]','length','1.53'],...],'State 2':[...],...},'AlkEthOH_c1143':                       {...},...}
+    
+    Returns
+    -------------
+    
+    """
+    # Step 1: Calculate the energies of the original configurations so that we can subsample
+    
+    
+    N_k = len(xyzn)
+    beta = 1/(kB*T)
+    for i in params:
+        print i
+
+    return
+
+
+N_k = 5000
+files = ['AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.08.nc','AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.09.nc']
+xyzn_tot = []
+count = 0
+for i in files:
+    data, xyzn = read_traj(i)
+    for i in xyzn:
+        xyzn_tot.append(i)
+        count += 1
+        if count == N_k*len(files):
+            break
+print xyzn_tot        
+print len(xyzn_tot)
+g = timeseries.statisticalInefficiency(xyzn_tot) 
+xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
+
+sys.exit()
+    
+# MAIN
+
+#-----------------------------------------------------------------
+# PARAMETERS
+#-----------------------------------------------------------------
+#N_k = np.array([100, 100, 100, 100, 100])
+#N_k_orig = 10000.
+
+indkeep = 4000
+N_k= np.array([4000])
+
+K = np.size(N_k)
+
+N_max = np.max(N_k)
+
+K_extra_vals = np.arange(0.08,0.25,0.01)
+
+#K_k = np.array([[106], [104], [102], [100], [98]])
+
+K_k = np.array([[[1.090]] for val in K_extra_vals])
+
+#K_extra = np.array([[96], [99], [103], [105], [108]]) # unsampled force constants
+K_extra = np.array([[[val]] for val in K_extra_vals])
+
+paramtype = [['k1']]
+obstype = 'Torsion'
+
+#mol2 = [['molecules/AlkEthOH_r0.mol2'],['molecules/AlkEthOH_r48.mol2'],['molecules/AlkEthOH_r51.mol2'],['molecules/AlkEthOH_c581.mol2'],['molecules/AlkEthOH_c100.mol2'],['molecules/AlkEthOH_c1161.mol2'],['molecules/AlkEthOH_c1266.mol2'],['molecules/AlkEthOH_c38.mol2'],['molecules/AlkEthOH_r118.mol2'],['molecules/AlkEthOH_r12.mol2']]
+#mol2 = [['molecules/AlkEthOH_r0.mol2'],['molecules/AlkEthOH_c581.mol2'],['molecules/AlkEthOH_c100.mol2'],['molecules/AlkEthOH_c1266.mol2'],['molecules/AlkEthOH_r51.mol2'],['molecules/AlkEthOH_r48.mol2']]
+
+mol2 = [['Mol2_files/'+sys.argv[1]+'.mol2']]
+
+#mol2en = ['molecules/AlkEthOH_r0.mol2','molecules/AlkEthOH_r48.mol2','molecules/AlkEthOH_r51.mol2','molecules/AlkEthOH_c581.mol2','molecules/AlkEthOH_c100.mol2','molecules/AlkEthOH_c1161.mol2','molecules/AlkEthOH_c1266.mol2','molecules/AlkEthOH_c38.mol2','molecules/AlkEthOH_r118.mol2','molecules/AlkEthOH_r12.mol2']
+mol2en = [val[0] for val in mol2]
+
+#traj = ['traj/AlkEthOH_r0.nc','traj/AlkEthOH_r48.nc','traj/AlkEthOH_r51.nc','traj/AlkEthOH_c581.nc','traj/AlkEthOH_c100.nc','traj/AlkEthOH_c1161.nc','traj/AlkEthOH_c1266.nc','traj/AlkEthOH_c38.nc','traj/AlkEthOH_r118.nc','traj/AlkEthOH_r12.nc']
+#traj = ['traj/AlkEthOH_r0.nc','traj/AlkEthOH_c581.nc','traj/AlkEthOH_c100.nc','traj/AlkEthOH_c1266.nc','traj/AlkEthOH_r51.nc','traj/AlkEthOH_r48.nc']
+traj = ['traj4ns/'+sys.argv[1]+'.nc']
+
+
+#trajs = [['traj/AlkEthOH_r0.nc'],['traj/AlkEthOH_r48.nc'],['traj/AlkEthOH_r51.nc'],['traj/AlkEthOH_c581.nc'],['traj/AlkEthOH_c100.nc'],['traj/AlkEthOH_c1161.nc'],['traj/AlkEthOH_c1266.nc'],['traj/AlkEthOH_c38.nc'],['traj/AlkEthOH_r118.nc'],['traj/AlkEthOH_r12.nc']] 
+#trajs = [['traj/AlkEthOH_r0.nc'],['traj/AlkEthOH_c581.nc']]
+trajs = [[val] for val in traj]
+
+smirkss = ['[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]']
+
+trajstest = [[[] for i in K_extra] for _ in traj]
+for ind,val in enumerate(trajs):
+    for ind1,val1 in enumerate(K_extra):
+        trajstest[ind][ind1] = [val[0][:-3]+'_'+smirkss[0]+'_k1'+str(val1[0][0])+'.nc']
+
+# Create lists to store data that will eventually be written in pandas df and saved as csv/json/pkl
+molnamedf = []
+smirksdf = []
+obstypedf = []
+paramtypedf = []
+newparamval = []
+N_subsampleddf = []
+percentshiftdf = []
+E_expectdf = [] 
+dE_expectdf = []
+dE_bootdf = []
+Enew_expectdf = [] 
+dEnew_expectdf = []
+dEnew_bootdf = []
+A_expectdf = [] 
+dA_expectdf = []
+dA_bootdf = []
+Anew_sampleddf = []
+Anew_expectdf = [] 
+dAnew_expectdf = []
+dAnew_bootdf = []
+varAnew_bootdf = []
+varAnew_sampdf = []
+altvarAnew_bootdf = []
+dvarAnew_bootdf = []
+altdvarAnew_bootdf = []
+varAnew_bootdf2 = []
+altvarAnew_bootdf2 = []
+dvarAnew_bootdf2 = []
+altdvarAnew_bootdf2 = []
+A_boot_new_sampdf = []
+dA_boot_new_sampdf = []
+# Return AtomDict needed to feed to ComputeBondsAnglesTorsions()
+for ind,(i,j) in enumerate(zip(mol2,traj)):
+    AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(i, [j]) 
+    mylist = [ii[1] for ii in lst_2[0]] 
+    myset = set(mylist)
+    poplist = np.zeros([len(myset)],np.float64) 
+    for b,k in enumerate(myset):
+        print "%s occurs %s times" %(k, mylist.count(k))
+        poplist[b] = mylist.count(k)
+    pctlist = 100.*poplist/sum(poplist)
+    pctdict = dict()
+    for c,k in enumerate(myset):
+        pctdict[k] = pctlist[c]   
+    
+    print '#################################################################################'
+    Atomdictmatches = []
+    for sublist in lst_2[0]:    
+        if sublist[1] == smirkss[0]:
+            Atomdictmatches.append(sublist[0])  
+    if not Atomdictmatches:
+        print 'No matches found'
+        continue 
+    
+    Atomdictmatchinds = []
+    for yy in Atomdictmatches:
+        for z,y in enumerate(AtomDict[obstype]):
+            if yy == str(AtomDict[obstype][z]):
+                Atomdictmatchinds.append(z)
+    
+    obs_ind = Atomdictmatchinds[0]
+    
+    # Calculate energies at various parameters of interest
+    for indparam,valparam in enumerate(K_extra):
+        energies, xyzn, system = new_param_energy(mol2en[ind],j, smirkss, N_k, K_k[indparam], paramtype, N_max, indkeep)
+        energiesnew, xyznnew, systemnew = new_param_energy(mol2en[ind],j, smirkss, N_k, K_extra[indparam], paramtype, N_max, indkeep)
+         
+        xyznsampled = [[] for i in trajs[ind]]
+        A = np.zeros([K,N_max],np.float64)
+        for i,x in enumerate(trajs[ind]):
+            coord = readtraj(x,indkeep)[1]
+            xyznsampled[i] = coord   
+            obs = ComputeBondsAnglesTorsions(coord,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]# Compute angles and return array of angles
+            numatom = len(obs[0]) # get number of unique angles in molecule
+            timeser = [obs[:,d] for d in range(numatom)] # re-organize data into timeseries
+            A[i] = timeser[obs_ind] # pull out single angle in molecule for test case  
+      
+        xyznnewtest = [[] for i in trajstest[ind][indparam]] 
+        Anewtest = np.zeros([K,N_max],np.float64)
+        for i,x in enumerate(trajstest[ind][indparam]):
+            coordtest = readtraj(x,indkeep)[1]
+            xyznnewtest[i] = coordtest   
+            obstest = ComputeBondsAnglesTorsions(coordtest,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]# Compute angles and return array of angles
+            numatomtest = len(obstest[0]) # get number of unique angles in molecule
+            timesertest = [obstest[:,d] for d in range(numatomtest)] # re-organize data into timeseries
+            Anewtest[i] = timesertest[obs_ind] # pull out single angle in molecule for test case
+
+              
+        # Subsample timeseries and return new number of samples per state
+        A_sub, N_kA, xyzn_A_sub, indA  = subsampletimeseries(A, xyznsampled, N_k)
+        En_sub, N_kEn, xyzn_En_sub, indEn = subsampletimeseries(energies[0], xyznsampled, N_k) 
+        Ennew_sub, N_kEnnew, xyzn_Ennew_sub, indEnnew = subsampletimeseries(energiesnew[0], xyznsampled, N_k)
+        A_sub_test,N_kA_test,xyzn_A_test,indAtest = subsampletimeseries(Anewtest,xyznnewtest,N_k)
+        
+        for a,b,c,d in zip(N_kA,N_kEn,N_kEnnew,N_kA_test):
+            N_kF = np.array([min(a,b,c,d)])
+           
+        A_kn = np.zeros([sum(N_kF)],np.float64)
+        A_knnew = np.zeros([sum(N_kF)],np.float64)
+        count = 0
+        for x1,x2 in zip(A_sub,A_sub_test):
+            for y1,y2 in zip(x1,x2):
+                A_kn[count] = y1
+                A_knnew[count] = y2
+                count += 1
+                if count > (sum(N_kF)-1):
+                    break 
+        #--------------------------------------------------------------
+        # Re-evaluate potenitals at all subsampled coord and parameters
+        #--------------------------------------------------------------
+        verbose = False # suppress echos from OEtoolkit functions
+        ifs = oechem.oemolistream(mol2en[ind])
+        mol = oechem.OEMol()
+        # This uses parm@frosst atom types, so make sure to use the forcefield-flavor reader
+        flavor = oechem.OEIFlavor_Generic_Default | oechem.OEIFlavor_MOL2_Default | oechem.OEIFlavor_MOL2_Forcefield
+        ifs.SetFlavor( oechem.OEFormat_MOL2, flavor)
+        oechem.OEReadMolecule(ifs, mol )
+        # Perceive tripos types
+        oechem.OETriposAtomNames(mol)
+
+        # Load forcefield file
+        ffxml = get_data_filename('forcefield/smirff99Frosst.ffxml')
+        ff = ForceField(ffxml)
+
+        # Generate a topology
+        from smarty.forcefield import generateTopologyFromOEMol
+        topology = generateTopologyFromOEMol(mol)
+
+
+        # Re-calculate energies     
+        E_kn = np.zeros([len(K_k[indparam]),sum(N_kEn)],np.float64)
+        for inds,s in enumerate(smirkss):
+            param = ff.getParameter(smirks=s)
+            for indss,vals in enumerate(K_k[indparam]):
+                count = 0
+                for p in paramtype:
+                    for a,b in zip(vals,p):
+                        param[b] = str(a)
+                    ff.setParameter(param, smirks = s)
+                    system = ff.createSystem(topology, [mol], verbose=verbose)  
+                    while count < sum(N_kEn):
+                        for k_ind, pos in enumerate(xyzn_En_sub):
+                            for i,a in enumerate(pos):
+                                e = np.float(get_energy(system, a))
+                                E_kn[indss,count] = e
+                                count += 1 
+                             
+        E_knnew = np.zeros([len(K_extra[indparam]),sum(N_kEn)],np.float64)
+        for inds,s in enumerate(smirkss):
+            param = ff.getParameter(smirks=s)
+            for indss,vals in enumerate(K_extra[indparam]):
+                count = 0
+                for p in paramtype:
+                    for a,b in zip(vals,p):    
+                        param[b] = str(a)
+                    ff.setParameter(param, smirks = s)
+                    system = ff.createSystem(topology, [mol], verbose=verbose)  
+                    while count < sum(N_kEn):
+                        for k_ind, pos in enumerate(xyzn_En_sub):
+                            for i,a in enumerate(pos):
+                                e = np.float(get_energy(system, a))
+                                E_knnew[indss,count] = e
+                                count += 1
+               
+        # Post process energy distributions to find expectation values, analytical uncertainties and bootstrapped uncertainties
+        #T_from_file = read_col('StateData/data.csv',["Temperature (K)"],100)
+        Temp_k = 300.#T_from_file
+        T_av = 300.#np.average(Temp_k)
+
+        nBoots = 200
+
+        beta_k = 1 / (kB*T_av)
+        bbeta_k = 1 / (kB*Temp_k)
+
+        #################################################################
+        # Compute reduced potentials
+        #################################################################
+
+        print "--Computing reduced potentials..."
+
+        # Initialize matrices for u_kn/observables matrices and expected value/uncertainty matrices
+        u_kn = np.zeros([K, sum(N_kF)], dtype=np.float64)
+        E_kn_samp = np.zeros([K,sum(N_kF)],np.float64)
+        u_knnew = np.zeros([K,sum(N_kF)], np.float64)
+        E_knnew_samp = np.zeros([K,sum(N_kF)], np.float64)
+        A_kn_samp = np.zeros([sum(N_kF)],np.float64)
+        A_knnew_samp = np.zeros([sum(N_kF)],np.float64)
+        A2_kn = np.zeros([sum(N_kF)],np.float64)
+        A2_knnew = np.zeros([sum(N_kF)],np.float64)
+
+
+        nBoots_work = nBoots + 1
+
+        allE_expect = np.zeros([K,nBoots_work], np.float64)
+        allA_expect = np.zeros([K,nBoots_work],np.float64)
+        allE2_expect = np.zeros([K,nBoots_work], np.float64)
+        dE_expect = np.zeros([K], np.float64)
+        allE_expectnew = np.zeros([K,nBoots_work], np.float64)
+        allE2_expectnew = np.zeros([K,nBoots_work], np.float64)
+        dE_expectnew = np.zeros([K], np.float64)
+        dA_expect = np.zeros([K],np.float64)
+        dA_expectnew = np.zeros([K],np.float64)
+        allvarA_expect_samp = np.zeros([K,nBoots_work],np.float64)
+        allA_expectnew = np.zeros([K,nBoots_work],np.float64)
+        allvarA_expectnew = np.zeros([K,nBoots_work],np.float64)
+        allaltvarA_expectnew = np.zeros([K,nBoots_work],np.float64)
+        allA_new_mean_samp = np.zeros([nBoots_work],np.float64)
+        
+        # Begin bootstrapping loop
+        for n in range(nBoots_work):
+            if (n > 0):
+                print "Bootstrap: %d/%d" % (n,nBoots)
+            for k in range(K):        
+                if N_kF[k] > 0:
+	            if (n == 0):
+                        booti = np.array(range(N_kF[k]))
+	            else:
+	                booti = np.random.randint(N_kF[k], size = N_kF[k])
+           
+                    E_kn_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = E_kn[:,booti]
+                    E_knnew_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = E_knnew[:,booti]
+                    A_kn_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_kn[booti] 
+                    A_knnew_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_knnew[booti]
+                    
+            for k in range(K): 
+                u_kn[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = beta_k * E_kn_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])]     
+                u_knnew[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = beta_k * E_knnew_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])]
+	        A2_kn[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_kn_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] 
+                A2_knnew[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_knnew_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])]
+
+############################################################################
+# Initialize MBAR
+############################################################################
+
+# Initialize MBAR with Newton-Raphson
+# Use Adaptive Method (Both Newton-Raphson and Self-Consistent, testing which is better)
+            if (n==0):
+	        initial_f_k = None # start from zero 
+            else:
+	        initial_f_k = mbar.f_k # start from the previous final free energies to speed convergence
+		
+            mbar = pymbar.MBAR(u_kn, N_kF, verbose=False, relative_tolerance=1e-12,initial_f_k=initial_f_k)
+            
+                        
+        #------------------------------------------------------------------------
+        # Compute Expectations for energy and angle distributions
+        #------------------------------------------------------------------------
+   
+           # print ""
+           # print "Computing Expectations for E..."
+            E_kn2 = u_kn  # not a copy, we are going to write over it, but we don't need it any more.
+            E_knnew2 = u_knnew
+            for k in range(K):
+                E_kn2[k,:]*=beta_k**(-1)  # get the 'unreduced' potential -- we can't take differences of reduced potentials because the beta is different.
+	        E_knnew2[k,:]*=beta_k**(-1)
+            (E_expect, dE_expect) = mbar.computeExpectations(E_kn2,state_dependent = True)
+            (E_expectnew, dE_expectnew) = mbar.computeExpectations(E_knnew2,state_dependent = True)
+            (A_expect, dA_expect) = mbar.computeExpectations(A2_kn,state_dependent = False) 
+
+
+            allE_expect[:,n] = E_expect[:]
+            allE_expectnew[:,n] = E_expectnew[:]
+            allA_expect[:,n] = A_expect[:]
+    
+        # expectations for the differences, which we need for numerical derivatives  
+        # To be used once the energy expectations are fixed
+            (DeltaE_expect, dDeltaE_expect) = mbar.computeExpectations(E_kn2,output='differences', state_dependent = False)
+            (DeltaE_expectnew, dDeltaE_expectnew) = mbar.computeExpectations(E_knnew2,output='differences', state_dependent = False)
+
+        # print "Computing Expectations for E^2..."
+            (E2_expect, dE2_expect) = mbar.computeExpectations(E_kn2**2, state_dependent = True)
+            allE2_expect[:,n] = E2_expect[:]
+
+            (A_expectnew, dA_expectnew) = mbar.computeExpectations(A2_kn,u_knnew,state_dependent=False)
+            allA_expectnew[:,n] = A_expectnew[:]
+            
+            
+	#Variance in unsampled calculated observables using MBAR
+            varA_mbar_feed = np.zeros([sum(N_kF)],np.float64)
+            for l in range(sum(N_kF)):
+                varA_mbar_feed[l] = ((A2_kn[l] - A_expect)**2)
+            
+            (varA_expectnew,dvarA_expectnew) = mbar.computeExpectations(varA_mbar_feed,u_knnew,state_dependent=False)
+            
+            allvarA_expectnew[:,n] = varA_expectnew[:]
+
+            #Check against calculating variance of A as <x^2> - <A>^2 (instead of <(x-A)^2>)
+            (A2_expectnew,dA2_expectnew) = mbar.computeExpectations(A2_kn**2,u_knnew,state_dependent=False)
+            altvarA_expectnew = (A2_expectnew[:] - A_expectnew[:]**2)
+               
+            allaltvarA_expectnew[:,n] = altvarA_expectnew[:]
+            
+            #Record mean of sampled observable with bootstrap randomization to get error bars 
+            allA_new_mean_samp[n] = np.mean(A2_knnew)
+            
+            N_eff = mbar.computeEffectiveSampleNumber(verbose = True)
+
+        if nBoots > 0:
+            A_bootnew = np.zeros([K],dtype=np.float64)
+            E_bootnew = np.zeros([K],dtype=np.float64)
+            dE_boot = np.zeros([K],dtype=np.float64)
+            dE_bootnew = np.zeros([K],dtype=np.float64)
+            dA_boot = np.zeros([K],dtype=np.float64)
+            dA_bootnew = np.zeros([K],dtype=np.float64)
+            varA_bootnew = np.zeros([K],dtype=np.float64)
+            altvarA_bootnew = np.zeros([K],dtype=np.float64)
+            dvarA_bootnew = np.zeros([K],dtype=np.float64)
+            altdvarA_bootnew = np.zeros([K],dtype=np.float64)
+            A_bootnew_samp = np.mean(allA_new_mean_samp)
+            dA_bootnew_samp = np.std(allA_new_mean_samp)
+            for k in range(K):
+    	        dE_boot[k] = np.std(allE_expect[k,1:nBoots_work])
+                dE_bootnew[k] = np.std(allE_expectnew[k,1:nBoots_work])
+                dA_boot[k] = np.std(allA_expect[k,1:nBoots_work])
+                dA_bootnew[k] = np.std(allA_expectnew[k,1:nBoots_work])
+                varA_bootnew[k] = np.average(allvarA_expectnew[k,1:nBoots_work])
+                altvarA_bootnew[k] = np.average(allaltvarA_expectnew[k,1:nBoots_work])
+                dvarA_bootnew[k] = np.std(allvarA_expectnew[k,1:nBoots_work])
+                altdvarA_bootnew[k] = np.std(allaltvarA_expectnew[k,1:nBoots_work])
+             
+            dA_bootnew = dA_expectnew
+            varA_bootnew = varA_expectnew
+            dvarA_bootnew = dvarA_expectnew
+            altvarA_bootnew = altvarA_expectnew
+            #altdvarA_bootnew = altdvarA_expectnew
+            
+            #bins1 = int(np.log2(len(allA_expectnew[0])))
+            #bins2 = int(np.sqrt(len(allA_expectnew[0])))
+            #binsnum = int((bins1+bins2)/2)
+            
+            #plt.figure() 
+            #plt.hist(allA_expectnew[0], binsnum, normed=1, facecolor='green', alpha=0.75)
+            #plt.xlabel('Length (A)')
+            #plt.ylabel('Probability')
+            #plt.axis([min(allA_expectnew[0])-(bins[1]-bins[0]), max(allA_expectnew[0])-(bins[1]-bins[0]), 0, bins[1]-bins[0]])
+            #plt.grid(True)
+            #plt.savefig('checkdist.png')
+         
+            E_mean_samp = np.array([np.average(E) for E in E_kn])
+            E_mean_unsamp = np.array([np.average(E) for E in E_knnew]) 
+            A_mean_samp = np.array([np.average(A) for A in A_sub])
+            A_mean_test = np.array([np.average(A) for A in A_sub_test])
+            varAnew_samp = np.array([np.std(A)**2 for A in A_sub_test])
+            
+            E_expect_mean = np.zeros([K],dtype=np.float64)       
+            E_expect_meannew = np.zeros([K],dtype=np.float64)
+            A_expect_mean_samp = np.zeros([K],dtype=np.float64)
+            A_expect_mean_unsamp = np.zeros([K],dtype=np.float64)
+            for k in range(K):
+                E_expect_mean[k] = np.average(allE_expect[k,1:nBoots_work])
+                E_expect_meannew[k] = np.average(allE_expectnew[k,1:nBoots_work])
+                A_expect_mean_samp[k] = np.average(allA_expect[k,1:nBoots_work])
+                A_expect_mean_unsamp[k] = np.average(allA_expectnew[k,1:nBoots_work])   
+            
+            A_expect_mean_unsamp = A_expectnew
+            E_expect_meannew = E_expectnew
+           
+                        
+            pctshft = 100.*((np.float(K_k[indparam]) - np.float(K_extra[indparam]))/np.float(K_k[indparam]))
+
+
+                    
+        allvarA_expectnew2 = np.zeros([K,nBoots_work],np.float64)
+        allaltvarA_expectnew2 = np.zeros([K,nBoots_work],np.float64)
+        for n in range(nBoots_work):
+            if (n > 0):
+                print "Bootstrap: %d/%d" % (n,nBoots)
+            for k in range(K):        
+                if N_kF[k] > 0:
+	            if (n == 0):
+                        booti = np.array(range(N_kF[k]))
+	            else:
+	                booti = np.random.randint(N_kF[k], size = N_kF[k])
+           
+                    E_kn_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = E_kn[:,booti]
+                    E_knnew_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = E_knnew[:,booti]
+                    A_kn_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_kn[booti] 
+                    A_knnew_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_knnew[booti]
+       
+            for k in range(K): 
+                u_kn[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = beta_k * E_kn_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])]     
+                u_knnew[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])] = beta_k * E_knnew_samp[:,sum(N_kF[0:k]):sum(N_kF[0:k+1])]
+	        A2_kn[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_kn_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])] 
+                A2_knnew[sum(N_kF[0:k]):sum(N_kF[0:k+1])] = A_knnew_samp[sum(N_kF[0:k]):sum(N_kF[0:k+1])]
+                
+############################################################################
+# Initialize MBAR
+############################################################################
+
+# Initialize MBAR with Newton-Raphson
+# Use Adaptive Method (Both Newton-Raphson and Self-Consistent, testing which is better)
+            if (n==0):
+	        initial_f_k = None # start from zero 
+            else:
+	        initial_f_k = mbar.f_k # start from the previous final free energies to speed convergence
+		
+            mbar = pymbar.MBAR(u_kn, N_kF, verbose=False, relative_tolerance=1e-12,initial_f_k=initial_f_k)
+
+            #Variance in unsampled calculated observables using MBAR
+            varA_mbar_feed2 = np.zeros([sum(N_kF)],np.float64)
+            for l in range(sum(N_kF)):
+                varA_mbar_feed2[l] = ((A2_kn[l] - A_expect_mean_unsamp[0])**2)
+            
+            
+            (varA_expectnew2,dvarA_expectnew2) = mbar.computeExpectations(varA_mbar_feed2,u_knnew,state_dependent=False)
+            
+            allvarA_expectnew2[:,n] = varA_expectnew2[:]
+
+            #Check against calculating variance of A as <x^2> - <A>^2 (instead of <(x-A)^2>)
+            (A_expectnew2,dA_expectnew2) = mbar.computeExpectations(A2_kn,u_knnew,state_dependent=False)
+            (A2_expectnew2,dA2_expectnew2) = mbar.computeExpectations(A2_kn**2,u_knnew,state_dependent=False)
+            altvarA_expectnew2 = (A2_expectnew2[:] - A_expectnew2[:]**2)
+               
+            allaltvarA_expectnew2[:,n] = altvarA_expectnew2[:] 
+            
+        if nBoots > 0:
+            varA_bootnew2 = np.zeros([K],dtype=np.float64)
+            altvarA_bootnew2 = np.zeros([K],dtype=np.float64)
+            dvarA_bootnew2 = np.zeros([K],dtype=np.float64)
+            altdvarA_bootnew2 = np.zeros([K],dtype=np.float64)
+            for k in range(K):
+    	        varA_bootnew2[k] = np.average(allvarA_expectnew2[k,1:nBoots_work])
+                altvarA_bootnew2[k] = np.average(allaltvarA_expectnew2[k,1:nBoots_work])
+                dvarA_bootnew2 = np.std(allvarA_expectnew2[k,1:nBoots_work])
+                altdvarA_bootnew2 = np.std(allaltvarA_expectnew2[k,1:nBoots_work])
+
+            varA_bootnew2 = varA_expectnew2
+            dvarA_bootnew2 = dvarA_expectnew2
+            altvarA_bootnew2 = altvarA_expectnew
+            #altdvarA_bootnew2 = altdvarA_expectnew2
+
+            #print allvarA_expectnew2
+            #print np.var(allA_expectnew) 
+            bins1 = int(np.log2(len(allvarA_expectnew2[0])))
+            bins2 = int(np.sqrt(len(allvarA_expectnew2[0])))
+            binsnum = int((bins1+bins2)/2)           
+            
+            plt.figure()
+            plt.hist(allvarA_expectnew2[0], binsnum, normed=1, facecolor='green', alpha=0.75)
+            plt.xlabel('Length^2 (A^2)')
+            plt.ylabel('Probability')
+            #plt.axis([min(allA_expectnew[0])-(bins[1]-bins[0]), max(allA_expectnew[0])-(bins[1]-bins[0]), 0, bins[1]-bins[0]])
+            plt.grid(True)
+            plt.savefig('checkdist2.png')
+            #sys.exit()
+
+
+
+            print '###############################################################################'
+            molnamedf.append(mol2[ind])
+            smirksdf.append(smirkss[0])
+            obstypedf.append(obstype)
+            paramtypedf.append(paramtype[0])
+            newparamval.append(K_extra[indparam])
+            percentshiftdf.append(pctshft)
+            N_subsampleddf.append(N_kF)
+            E_expectdf.append(E_expect_mean)
+            dE_expectdf.append(dE_expect)
+            dE_bootdf.append(dE_boot)
+            Enew_expectdf.append(E_expect_meannew)
+            dEnew_expectdf.append(dE_expectnew)
+            dEnew_bootdf.append(dE_bootnew)
+            A_expectdf.append(A_expect_mean_samp)
+            dA_expectdf.append(dA_expect)
+            dA_bootdf.append(dA_boot)
+            Anew_sampleddf.append(A_mean_test)
+            Anew_expectdf.append(A_expect_mean_unsamp) 
+            dAnew_expectdf.append(dA_expectnew)
+            dAnew_bootdf.append(dA_bootnew)
+            varAnew_sampdf.append(varAnew_samp)
+            varAnew_bootdf.append(varA_bootnew)
+            altvarAnew_bootdf.append(altvarA_bootnew)
+            dvarAnew_bootdf.append(dvarA_bootnew)
+            altdvarAnew_bootdf.append(altdvarA_bootnew)
+            varAnew_bootdf2.append(varA_bootnew2)
+            altvarAnew_bootdf2.append(altvarA_bootnew2)
+            dvarAnew_bootdf2.append(dvarA_bootnew2)
+            altdvarAnew_bootdf2.append(altdvarA_bootnew2)
+            A_boot_new_sampdf.append(A_bootnew_samp)
+            dA_boot_new_sampdf.append(dA_bootnew_samp)
+            print("NEXT LOOP")
+########################################################################
+df = pd.DataFrame.from_dict({'mol_name':[value for value in molnamedf],
+                             'smirks':[value for value in smirksdf],
+                             'obs_type':[value for value in obstypedf],
+                             'param_type':[value for value in paramtypedf],
+                             'new_param':[value for value in newparamval],
+                             'percent_shift':[value for value in percentshiftdf],
+                             'N_subsampled':[value for value in N_subsampleddf],
+                             'E_expect':[value for value in E_expectdf],
+                             'dE_expect':[value for value in dE_expectdf],
+                             'dE_boot':[value for value in dE_bootdf],
+                             'Enew_expect':[value for value in Enew_expectdf],
+                             'dEnew_expect':[value for value in dEnew_expectdf],
+                             'dEnew_boot':[value for value in dEnew_bootdf],
+                             'A_expect':[value for value in A_expectdf],
+                             'dA_expect':[value for value in dA_expectdf],
+                             'dA_boot':[value for value in dA_bootdf],
+                             'Anew_sampled':[value for value in Anew_sampleddf],
+                             'Anew_expect':[value for value in Anew_expectdf],
+                             'dAnew_expect':[value for value in dAnew_expectdf],
+                             'dAnew_boot':[value for value in dAnew_bootdf],
+                             'varAnew_samp':[value for value in varAnew_sampdf],
+                             'varAnew_boot':[value for value in varAnew_bootdf],
+                             'altvarAnew_boot':[value for value in altvarAnew_bootdf],
+                             'dvarAnew_boot':[value for value in dvarAnew_bootdf],
+                             'altdvarAnew_boot':[value for value in altdvarAnew_bootdf],
+                             'varAnew_boot2':[value for value in varAnew_bootdf2],
+                             'altvarAnew_boot2':[value for value in altvarAnew_bootdf2],
+                             'dvarAnew_boot2':[value for value in dvarAnew_bootdf2],
+                             'altdvarAnew_boot2':[value for value in altdvarAnew_bootdf2],
+                             'A_boot_new_samp':[value for value in A_boot_new_sampdf],
+                             'dA_boot_new_samp':[value for value in dA_boot_new_sampdf]})
+df.to_csv('mbar_analyses/mbar_analysis_'+sys.argv[1]+'_'+smirkss[0]+'_'+paramtype[0][0]+'_'+obstype+'.csv',sep=';')
+df.to_pickle('mbar_analyses/mbar_analysis_'+sys.argv[1]+'_'+smirkss[0]+'_'+paramtype[0][0]+'_'+obstype+'.pkl')
+
 
 ##########################################################################################################################
 ##########################################################################################################################

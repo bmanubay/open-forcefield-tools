@@ -11,9 +11,6 @@ from smarty import *
 import sys
 import numpy as np
 
-#Define what molecule to work on, and a few simulation parameters
-#molname = ['AlkEthOH_r0','AlkEthOH_r48','AlkEthOH_r51','AlkEthOH_c581','AlkEthOH_c100','AlkEthOH_c1161','AlkEthOH_c1266','AlkEthOH_c38','AlkEthOH_r118','AlkEthOH_r12']
-#molname = ['AlkEthOH_c581','AlkEthOH_r0']
 molname = [sys.argv[1]]
 mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
 time_step = 0.8 #Femtoseconds
@@ -42,7 +39,8 @@ for ind,j in enumerate(mol_filename):
         positions[index,1] = y
         positions[index,2] = z
     positions = Quantity(positions, unit.angstroms)
-
+    
+    
     # Load forcefield
     forcefield = ForceField(get_data_filename('forcefield/smirff99Frosst.ffxml'))
 
