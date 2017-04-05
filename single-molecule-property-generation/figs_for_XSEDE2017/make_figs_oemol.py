@@ -14,6 +14,7 @@ image = OEImage(800, 800)
 
 rows, cols = 6, 2
 grid = OEImageGrid(image, rows, cols)
+grid.SetMargins(5)
 
 opts = OE2DMolDisplayOptions(grid.GetCellWidth(), grid.GetCellHeight(), OEScale_AutoScale)
 
