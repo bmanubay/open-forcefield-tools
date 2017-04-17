@@ -1,5 +1,8 @@
 # direcories
 extra_stuff_from_single-molecule-property-calculation/
+traj/
+traj4ns/
+traj20ns/
 
 # files
 *.out
