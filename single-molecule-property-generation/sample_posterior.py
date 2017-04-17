@@ -653,7 +653,7 @@ def get_energy(system, positions):
 
 #------------------------------------------------------------------
 
-def new_param_energy(coords, params):
+def new_param_energy(coords, params, T=300.):
     """
     Return potential energies associated with specified parameter perturbations.
     Parameters
@@ -664,10 +664,19 @@ def new_param_energy(coords, params):
              length 3 lists contain information on a parameter to change in the form: [SMIRKS, parameter type, parameter value]. I.e. :
     
              params = {'AlkEthOH_c1143':{'State 1':[['[6X4:1]-[#1:2]','k','620'],['[6X4:1]-[#6X4:2]','length','1.53'],...],'State 2':[...],...}}
+    T: Temperature of the system. By default set to 300 K.
+    
     Returns
     -------
-    energies: a list of the energies associated with the forcfield parameters used as input
+    E_kn: a kxN matrix of the dimensional energies associated with the forcfield parameters used as input
+    u_kn: a kxN matrix of the dimensionless energies associated with the forcfield parameters used as input
     """
+
+    #-------------------
+    # CONSTANTS
+    #-------------------
+    beta = 1/(kB*T) 
+
     #-------------------
     # PARAMETERS
     #-------------------
@@ -713,7 +722,8 @@ def new_param_energy(coords, params):
 
     # Calculate energies 
     
-    energies = np.zeros([K,len(coords)],np.float64)
+    E_kn = np.zeros([K,len(coords)],np.float64)
+    u_kn = np.zeros([K,len(coords)],np.float64)
     for i,j in enumerate(params):
         AlkEthOH_id = j    
         for k,l in enumerate(params[AlkEthOH_id]):
@@ -722,41 +732,31 @@ def new_param_energy(coords, params):
                 newparams[n[1]]=n[2]
                 ff.setParameter(newparams,smirks=n[0]) 
                 system = ff.createSystem(topology, [mol])
-                for o,p in enumerate(positions):
-                    e = np.float(get_energy(system,p))
-                    energies[m,o] = e
-       # temp0 = np.zeros([len(params),samps],np.float64)
-       # param = ff.getParameter(smirks=s)
-       # for ind,val in enumerate(params):
-       #     for p in paramtype:
-       #         temp1 = np.zeros(samps,np.float64)
-       #         for a,b in zip(val,p):
-       #             param[b] = str(a)      
-       #         ff.setParameter(param, smirks = s)
-       #         system = ff.createSystem(topology, [mol], verbose=verbose)
-       #         for i,a in enumerate(xyzn): 
-       #             e = np.float(get_energy(system, a))
-       #             energies[inds,ind,i] = e
-   
-    return energies,system
+            for o,p in enumerate(coords):
+                e = np.float(get_energy(system,p))
+                E_kn[k,o] = e
+                u_kn[k,o] = e*beta
+              
+         
+    return E_kn,u_kn
 
 #------------------------------------------------------------------
-ncfiles = glob.glob('*.nc')
-mol2 = 'Mol2_files/AlkEthOH_c1143'
-positions = []
-for i,j in enumerate(ncfiles):
-    data, xyz = read_traj(j)
-    for pos in xyz:
-       positions.append(pos)
+#ncfiles = glob.glob('*.nc')
+#mol2 = 'Mol2_files/AlkEthOH_c1143'
+#positions = []
+#for i,j in enumerate(ncfiles):
+#    data, xyz = read_traj(j)
+#    for pos in xyz:
+#       positions.append(pos)
 #for i,j in enumerate(positions):
 #    print j
 #    if i > 1:
 #        break 
-print len(positions)
-params = {'AlkEthOH_c1143':{'State 1':[['[#6X4:1]-[#1:2]','k','620'],['[#6X4:1]-[#6X4:2]','length','1.53']],
-                            'State 2':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#6X4:2]','length','1.60']]}}
+#print len(positions)
+#params = {'AlkEthOH_c1143':{'State 1':[['[#6X4:1]-[#1:2]','k','620'],['[#6X4:1]-[#6X4:2]','length','1.53']],
+#                            'State 2':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#6X4:2]','length','1.60']]}}
 
-energies,system = new_param_energy(positions, params)
+#energies,system = new_param_energy(positions, params)
 
 #------------------------------------------------------------------
 
@@ -823,7 +823,7 @@ def get_small_mol_dict(mol2):
 
     return AtomDict,lst_0,lst_1,lst_2
 
-AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
+#AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
 
 #------------------------------------------------------------------
 
@@ -874,17 +874,80 @@ def subsampletimeseries(timeser,xyzn,N_k):
             
     return ts_sub, N_k_sub, xyz_sub, ind
 
-ts_sub,N_k_sub,xyz_sub,ind = subsampletimeseries([energies[0],energies[1]],[positions,positions],[10000,10000])
-obs = ComputeBondsAnglesTorsions(positions,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]
-print [bond[0] for bond in obs]
-sys.exit()
-#------------------------------------------------------------------
-def calc_u_kn(xyzn,params,T=300.,):
+#ts_sub,N_k_sub,xyz_sub,ind = subsampletimeseries([energies[0],energies[1]],[positions,positions],[10000,10000])
+#obs = ComputeBondsAnglesTorsions(positions,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]
+#----------------------------------------------------------------------
+
+def find_smirks_instance(mol2,smirks):
     """
-    Given a kxN matrix of coordinates, calculate full u_kn matrix for arbitrary number of new states.
+    Given a mol2 file and a smirks string, match the observable indices of the mol2 (determined by the mol2 connectivity)
+    to the smirks string supplied.
+    
+    Parameters
+    ----------
+    mol2: the mol2 file for the molecule of interest
+    smirks: the smirks string you wish to identify in the molecule
+   
+    Returns
+    -------
+    inds: a list of indices which correspond to the bonded observable identified by the smirks string supplied 
+    """
+    
+    AtomDict, lst_0, lst_1, lst_2 = get_small_mol_dict([mol2])
+
+    smirks_list = smirks.split('-')
+    
+    if len(smirks_list)==2:
+        lst = lst_0
+        obstype = 'Bond'
+    
+    if len(smirks_list)==3:
+        lst = lst_1
+        obstype = 'Angle'
+   
+    if len(smirks_list)==4:
+        lst = lst_2
+        obstype = 'Torsion'
+ 
+    mylist = [i[1] for i in lst[0]] 
+    myset = set(mylist)
+    poplist = np.zeros([len(myset)],np.float64) 
+    for b,k in enumerate(myset):
+        print "%s occurs %s times" %(k, mylist.count(k))
+        poplist[b] = mylist.count(k)
+    pctlist = 100.*poplist/sum(poplist)
+    pctdict = dict()
+    for c,k in enumerate(myset):
+        pctdict[k] = pctlist[c]   
+    
+    print '#################################################################################'
+    Atomdictmatches = []
+    for sublist in lst[0]:    
+        if sublist[1] == smirks:
+            Atomdictmatches.append(sublist[0])  
+    if not Atomdictmatches:
+        print 'No matches found'
+        # continue 
+    
+    Atom_dict_match_inds = []
+    for yy in Atomdictmatches:
+        for z,y in enumerate(AtomDict[obstype]):
+            if yy == str(AtomDict[obstype][z]):
+                Atom_dict_match_inds.append(z)
+    
+        
+    return Atom_dict_match_inds
+
+#a = find_smirks_instance('Mol2_files/AlkEthOH_c1143.mol2','[#6X4:1]-[#1:2]')
+
+#------------------------------------------------------------------
+
+def calc_u_kn(energies,params,T=300.,):
+    """
+    Given a nested list of energies (k lists of length N), calculate full u_kn (kxN) matrix for arbitrary number of new states.
     Where k is the original number of states and N is the length of each trajectory.
     -------------
-    xyzn - kxN matrix of coordinates representing all configurations visited from the original states
+    energies - len(N) list of all subsampled coordinates representing all configurations visited from the original states
     params - Arbitrary length dictionary of changes in parameter across arbitrary number of states. Highest level key is the molecule AlkEthOH_ID,
              second level of keys are the new state, the values of each of these subkeys are a arbitrary length list of length 3 lists where the 
              length 3 lists contain information on a parameter to change in the form: [SMIRKS, parameter type, parameter value]. I.e. :
@@ -895,7 +958,7 @@ def calc_u_kn(xyzn,params,T=300.,):
     -------------
     
     """
-    # Step 1: Calculate the energies of the original configurations so that we can subsample
+    #Step 1: Calculate the energies of the original configurations so that we can subsample
     
     
     N_k = len(xyzn)
@@ -906,22 +969,86 @@ def calc_u_kn(xyzn,params,T=300.,):
     return
 
 
-N_k = 5000
-files = ['AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.08.nc','AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.09.nc']
-xyzn_tot = []
-count = 0
-for i in files:
-    data, xyzn = read_traj(i)
-    for i in xyzn:
-        xyzn_tot.append(i)
-        count += 1
-        if count == N_k*len(files):
-            break
-print xyzn_tot        
-print len(xyzn_tot)
-g = timeseries.statisticalInefficiency(xyzn_tot) 
-xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
+#N_k = 5000
+#files = ['AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.08.nc','AlkEthOH_c1143_[#6X4:1]-[#6X4:2]-[#8X2H1:3]-[#1:4]_k1_0.09.nc']
+#xyzn_tot = []
+#count = 0
+#for i in files:
+#    data, xyzn = read_traj(i)
+#    for i in xyzn:
+#        xyzn_tot.append(i)
+#        count += 1
+#        if count == N_k*len(files):
+#            break
+#print xyzn_tot        
+#print len(xyzn_tot)
+#g = timeseries.statisticalInefficiency(xyzn_tot) 
+#xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
+ncfiles = glob.glob('*43.nc')
+mol2 = 'Mol2_files/AlkEthOH_c1143'
+xyz_orig = []
+for i,j in enumerate(ncfiles):
+    data, xyz = read_traj(j,4000)
+    for pos in xyz:
+       xyz_orig.append(pos)
 
+params = {'AlkEthOH_c1143':{'State 1':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#1:2]','length','1.09']],
+                            'State 2':[['[#6X4:1]-[#1:2]','k','740'],['[#6X4:1]-[#1:2]','length','1.13']]}}
+
+energies, u_first = new_param_energy(xyz_orig, params)
+
+AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
+
+ts_sub,N_k_sub,xyz_sub,ind = subsampletimeseries([energies[0]],[xyz_orig],[4000])
+obs = ComputeBondsAnglesTorsions(xyz_sub,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]
+
+paramsnew = {'AlkEthOH_c1143':{'State 0':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#1:2]','length','1.09']],
+                            'State 1':[['[#6X4:1]-[#1:2]','k','650'],['[#6X4:1]-[#1:2]','length','1.09']],
+                            'State 2':[['[#6X4:1]-[#1:2]','k','710'],['[#6X4:1]-[#1:2]','length','1.09']],
+                            'State 3':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#1:2]','length','1.06']],
+                            'State 4':[['[#6X4:1]-[#1:2]','k','650'],['[#6X4:1]-[#1:2]','length','1.06']],
+                            'State 5':[['[#6X4:1]-[#1:2]','k','710'],['[#6X4:1]-[#1:2]','length','1.06']],
+                            'State 6':[['[#6X4:1]-[#1:2]','k','680'],['[#6X4:1]-[#1:2]','length','1.12']],
+                            'State 7':[['[#6X4:1]-[#1:2]','k','650'],['[#6X4:1]-[#1:2]','length','1.12']],
+                            'State 8':[['[#6X4:1]-[#1:2]','k','710'],['[#6X4:1]-[#1:2]','length','1.12']]}}
+
+
+E_kn, u_kn = new_param_energy(xyz_sub, paramsnew)
+
+a = find_smirks_instance('Mol2_files/AlkEthOH_c1143.mol2','[#6X4:1]-[#1:2]')
+
+obs_ind = a[0]
+num_obs = len(obs[0]) # get number of unique angles in molecule
+timeser = [obs[:,d] for d in range(num_obs)] # re-organize data into timeseries
+A_kn = timeser[obs_ind] # pull out single angle in molecule for test case
+
+K,N = np.shape(u_kn)
+
+N_k = np.zeros(K)
+
+N_k[0] = N 
+
+# Initialize MBAR with Newton-Raphson
+# Use Adaptive Method (Both Newton-Raphson and Self-Consistent, testing which is better)
+initial_f_k = None # start from zero
+mbar = pymbar.MBAR(u_kn, N_k, verbose=False, relative_tolerance=1e-12,initial_f_k=initial_f_k)
+
+
+#------------------------------------------------------------------------
+# Compute Expectations for energy and angle distributions
+#------------------------------------------------------------------------
+print "Computing Expectations for E and A..."
+(E_expect, dE_expect) = mbar.computeExpectations(E_kn,state_dependent = True)
+(A_expect, dA_expect) = mbar.computeExpectations(A_kn,state_dependent = False)
+
+
+N_eff = mbar.computeEffectiveSampleNumber(verbose = True)
+
+#from one original sample point ((length,k) combo is (1.09,680)) we're making MBAR estimates at 8 other point to make a 3x3 grid to fit with a plane
+#New states are 3% either way in length (1.05 and 1.13) and 5% either way in k (640 and 720)
+#See hand-drawn grid for map
+#Estimate bond length mean and variance (eventually) for [#6X4:1]-[#1:2] and fit surface to observable over 2d param space
+print A_expect
 sys.exit()
     
 # MAIN
