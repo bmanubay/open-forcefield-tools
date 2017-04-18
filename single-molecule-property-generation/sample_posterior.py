@@ -984,7 +984,48 @@ def calc_u_kn(energies,params,T=300.,):
 #print len(xyzn_tot)
 #g = timeseries.statisticalInefficiency(xyzn_tot) 
 #xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
-ncfiles = glob.glob('*43.nc')
+ncfiles = glob.glob('traj4ns_c1143/*.nc')
+AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
+a = find_smirks_instance('Mol2_files/AlkEthOH_c1143.mol2','[#6X4:1]-[#1:2]')
+obs_ind = a[0]
+
+kval = []
+lenval = []
+bond_len_av = []
+bond_len_var = []
+for ind,name in enumerate(ncfiles):
+    name_string = name.split('/')[-1].rsplit('.',1)[0].split('_')
+    filt_string = filter(lambda x:x.startswith(("length", "k")), name_string) 
+    print filt_string
+    for i in filt_string:
+        if i.startswith('k'):
+            kval.append(float(i[1:]))
+        if i.startswith('length'):
+            lenval.append(float(i[6:]))
+    if len(filt_string) == 1:
+        for i in filt_string:
+            if i.startswith('k'):
+                lenval.append(1.090)
+            if i.startswith('length'):
+                kval.append(680.0)
+   
+    data,xyz = read_traj(name,6250)
+    bl = ComputeBondsAnglesTorsions(xyz,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])[0]
+    num_obs = len(bl[0]) # get number of unique angles in molecule
+    timeser = [bl[:,d] for d in range(num_obs)] # re-organize data into timeseries
+    A_kn = timeser[obs_ind] # pull out single angle in molecule for test case
+    bond_len_av.append(np.average(A_kn))
+    bond_len_var.append(np.var(A_kn)) 
+    
+df = pd.DataFrame(
+    {'k_values': kval,
+     'length_values': lenval,
+     'bond_length_average': bond_len_av,
+     'bond_length_variance':bond_len_var
+    })
+df.to_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
+sys.exit()
+
 mol2 = 'Mol2_files/AlkEthOH_c1143'
 xyz_orig = []
 for i,j in enumerate(ncfiles):
