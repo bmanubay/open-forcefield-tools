@@ -66,8 +66,14 @@ zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
 rgb = ls.shade(zz_av, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+#heatmap = ax.pcolor(zz_av, cmap=rgb)                  
+#plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
 surf = ax.plot_surface(xx, yy, zz_av, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
+
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('Average of bond length distribution - (A)')
 ax.plot3D(x_av, y_av, z_av, "o")
 
 fg.canvas.draw()
@@ -77,13 +83,28 @@ plt.savefig('bond_length_average_vs_k_length_w_fit.png')
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
 rgb = ls.shade(zz_var, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
-surf = ax.plot_surface(xx, yy, zz_var, rstride=1, cstride=1, facecolors=rgb,
+surf = ax.plot_surface(xx, yy, zz_var,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
+#fg.colorbar(surf, shrink=0.5, aspect=5)
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('Variance of bond length distribution - (A^2)')
 ax.plot3D(x_var, y_var, z_var, "o")
 
 fg.canvas.draw()
 plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
 
+x_av,res_av,rank_av,s_av = np.linalg.lstsq(G, z_av)
+x_var,res_var,rank_var,s_var = np.linalg.lstsq(G, z_var)
+
+print x_av
+print x_var
+
+print rank_av
+print rank_var
+
+print res_av
+print res_var
 sys.exit()
 
 fig = plt.figure()
