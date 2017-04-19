@@ -43,7 +43,7 @@ ordr = 2  # order of polynomial
 
 x_av, y_av, z_av = points_av.T
 #x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
-
+print x_av
 x_var, y_var, z_var = points_var.T
 #x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
 
@@ -62,6 +62,7 @@ m_var = np.linalg.lstsq(G, z_var)[0]
 nx, ny = 100, 100
 xx, yy = np.meshgrid(np.linspace(x_av.min(), x_av.max(), nx),
                      np.linspace(y_av.min(), y_av.max(), ny))
+
 GG = poly_matrix(xx.ravel(), yy.ravel(), ordr)
 zz_av = np.reshape(np.dot(GG, m_av), xx.shape)
 zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
