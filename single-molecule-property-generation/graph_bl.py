@@ -37,11 +37,15 @@ def poly_matrix(x, y, order=2):
     return G
 
 ordr = 2  # order of polynomial
+#x_av_0 = x_av[0]
+#y_av_0 = y_av[0]
+#x_var_0 = x_var[0]
+
 x_av, y_av, z_av = points_av.T
-x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
+#x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
 
 x_var, y_var, z_var = points_var.T
-x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
+#x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
 
 
 
