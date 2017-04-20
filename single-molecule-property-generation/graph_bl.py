@@ -13,6 +13,7 @@ from scipy.interpolate import griddata
 import seaborn as sns
 
 from scipy.stats import norm
+from scipy.stats import uniform
 from scipy.stats import multivariate_normal
 import sys
 
@@ -21,6 +22,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import itertools
 from matplotlib import cm
 from matplotlib.colors import LightSource
+import pdb
 
 df = pd.read_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
 
@@ -32,8 +34,11 @@ def poly_matrix(x, y, order=2):
     ncols = (order + 1)**2
     G = np.zeros((x.size, ncols))
     ij = itertools.product(range(order+1), range(order+1))
+    print ij
     for k, (i, j) in enumerate(ij):
+        print i,j
         G[:, k] = x**i * y**j
+   
     return G
 
 ordr = 2  # order of polynomial
@@ -43,7 +48,7 @@ ordr = 2  # order of polynomial
 
 x_av, y_av, z_av = points_av.T
 #x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
-print x_av
+
 x_var, y_var, z_var = points_var.T
 #x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
 
@@ -84,6 +89,9 @@ ax.plot3D(x_av, y_av, z_av, "o")
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
 
+
+zz_comp = m_var[0] + m_var[1]*yy + m_var[2]*yy**2 + m_var[3]*xx + m_var[4]*xx*yy + m_var[5]*xx*(yy**2) + m_var[6]*xx**2 + m_var[7]*(xx**2)*yy + m_var[8]*(xx**2)*(yy**2)
+
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -110,48 +118,133 @@ print rank_var
 
 print res_av
 print res_var
-sys.exit()
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+def sampler(data, samples=4, theta_init=[500,0.8], proposal_width=[10,0.05], plot=False, mu_prior_mu=0, mu_prior_sd=1.):
+    """
+    Outline:
+    1)Take data and calculate observable
+    2)Reweight observable to different state and calculate observable based on new state
+	- smarty move in many parameters
+        - will have to start without torsion moves
+        - Safe moves in equilibrium bond length and angle is ~3%. For force constants ~5%.
+    3)Will have to make decision here:
+        a)Continue to sample in order to gather more data? -or-
+        b)Attempt to create surrogate models from the data we have? What does that entail?
+            i)We want a surrogate model for every observable we have, $O\left(\theta\right)$
+            ii)Thus for bonds and angles; we have 4 observables as a function of however many parameters we're working with at the time
+            iii)Choice of surrogate model becomes important. Start with splining though
+            iv)What is the best surrogate modeling technique to use when we have very sparse data?
 
-ax.scatter(df.k_values,df.length_values,df.bond_length_average)
+    Other things to consider:
+    1)Choice of surrogate models:
+        a)Splining
+        b)Rich's ideas
+        c)Other ideas from Michael he got at conference last week
+    2)Choice of likelihood:
+        a)Gaussian likelihood
+        b)More general based on mean squared error
+    3)Prior
+        a)Start with uniforms with physically relevant bounds for given parameter
+        b)Informationless priors
+  
+    Expanding initial knowledge region using MBAR
+    1) Simulate single thermodynamic state
+    2) Use MBAR to reweight in parameter space
+        a) Will go to full extent of parameters within region where we know MBAR estimates are good
+        b) Reweighting at multiple steps to full extent and along diagonals between parameters in order to create grid of points of evidence
+        c) Now we cheaply achieved a region of evidence vs a single point
+    3) Can fit our hypercube to multiple planes
+        a) Assuming trends in very local space will be incredibly linear
+        b) Probably a pretty safe assumption given minute change in parameter
+    """
+    # Begin process by loading a prescribed simulation or performing it if it doesn't exist in the specified directory
+    
+    theta_current = theta_init
+    posterior = [theta_current]
+    probs = [np.random.rand()]
+    hits = []
+    for i in range(samples):
+        # suggest new position
+        theta_proposal = [norm(theta_current[j],proposal_width[j]).rvs() for j in range(len(theta_current))]    
+        
+
+        # Compute observables at proposed theta with surrgates
+        O_av_comp_curr = m_av[0] + m_av[1]*theta_current[1] + m_av[2]*theta_current[1]**2 + m_av[3]*theta_current[0] +\
+                     m_av[4]*theta_current[0]*theta_current[1] + m_av[5]*theta_current[0]*(theta_current[1]**2) +\
+                     m_av[6]*theta_current[0]**2 + m_av[7]*(theta_current[0]**2)*theta_current[1] +\
+                     m_av[8]*(theta_current[0]**2)*(theta_current[1]**2)
+
+        O_var_comp_curr = m_var[0] + m_var[1]*theta_current[1] + m_var[2]*theta_current[1]**2 + m_var[3]*theta_current[0] +\
+                     m_var[4]*theta_current[0]*theta_current[1] + m_var[5]*theta_current[0]*(theta_current[1]**2) +\
+                     m_var[6]*theta_current[0]**2 + m_var[7]*(theta_current[0]**2)*theta_current[1] +\
+                     m_var[8]*(theta_current[0]**2)*(theta_current[1]**2)
+
+        O_comp_curr = [O_av_comp_curr,O_var_comp_curr]
+ 
+
+        O_av_comp_prop = m_av[0] + m_av[1]*theta_proposal[1] + m_av[2]*theta_proposal[1]**2 + m_av[3]*theta_proposal[0] +\
+                     m_av[4]*theta_proposal[0]*theta_proposal[1] + m_av[5]*theta_proposal[0]*(theta_proposal[1]**2) +\
+                     m_av[6]*theta_proposal[0]**2 + m_av[7]*(theta_proposal[0]**2)*theta_proposal[1] +\
+                     m_av[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)
+
+        O_var_comp_prop = m_var[0] + m_var[1]*theta_proposal[1] + m_var[2]*theta_proposal[1]**2 + m_var[3]*theta_proposal[0] + \
+                     m_var[4]*theta_proposal[0]*theta_proposal[1] + m_var[5]*theta_proposal[0]*(theta_proposal[1]**2) + \
+                     m_var[6]*theta_proposal[0]**2 + m_var[7]*(theta_proposal[0]**2)*theta_proposal[1] + \
+                     m_var[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)         
+        
+        O_comp_prop = [O_av_comp_prop,O_var_comp_prop]
+
+    
+        # Compute likelihood by multiplying probabilities of each data point
+        likelihood_current = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_curr[j])**2)/(2*data[1][j])) 
+                             for j in range(len(data))]))
+        likelihood_proposal = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_prop[j])**2)/(2*data[1][j]))
+                              for j in range(len(data))]))
+
+
+        # Compute prior probability of current and proposed mu    
+        prior_current = norm(theta_current[0],theta_current[1]).pdf(theta_current[0])  
+        prior_proposal = norm(theta_proposal[0],theta_proposal[1]).pdf(theta_proposal[0])
+        
+        p_current = likelihood_current * prior_current
+        p_proposal = likelihood_proposal * prior_proposal
+      
+        # Accept proposal?
+        p_accept = p_proposal / p_current
+         
+        # Usually would include prior probability, which we neglect here for simplicity
+        accept = np.random.rand() < p_accept
+
+        #if plot:
+        #    plot_proposal(mu_current, mu_proposal, mu_prior_mu, mu_prior_sd, data, accept, posterior, i)
+        
+        if accept:
+            # Update position
+            theta_current = theta_proposal
+            hits.append(1)
+            print "%s out of %s MCMC steps completed. Prior current = %s" % (i,samples,prior_current)
+        else:
+            hits.append(0)
+        posterior.append(theta_current)
+        probs.append(float(likelihood_current*prior_current))
+    efficiency = float(sum(hits))/float(samples) 
+    print efficiency
+    return posterior,probs
+posterior,probs = sampler([[1.0920405895833334,0.00090201196735599997],[0.00090201196735599997,2.8009246152166006e-10]],samples=10000)
+
+x = np.array([a[0] for a in posterior])
+y = np.array([a[1] for a in posterior])
+
+print x
+print y
+
+fig, ax = plt.subplots()
+hb = ax.hexbin(x, y)
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
-ax.set_zlabel('Average of bond length distribution - (A)')
-plt.savefig('bond_length_average_vs_k_length.png')
+ax.set_title('Frequency of parameter combinations sampled from posterior distribution')
+cb = fig.colorbar(hb, ax=ax)
+cb.set_label('Frequency')
 
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-ax.scatter(df.k_values,df.length_values,df.bond_length_variance)
-ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
-ax.set_ylabel('Equilibrium bond length - (A)')
-ax.set_zlabel('Variance of bond length distribution - (A^2)')
-plt.savefig('bond_length_variance_vs_k_length.png')
-
-
-grid_x, grid_y = np.mgrid[0:1200:100j, 0:1.75:200j]
-
-z1 = griddata([[i,j] for i,j in zip(df.k_values,df.length_values)], df.bond_length_average, (grid_x, grid_y), method='cubic')
-z2 = griddata([[i,j] for i,j in zip(df.k_values,df.length_values)], df.bond_length_variance, (grid_x, grid_y), method='cubic')
-
-print grid_x
-print z1
-
-
-plt.figure()
-CS = plt.contour(grid_x,grid_y,z1)
-plt.clabel(CS, inline=1, fontsize=10)
-plt.xlabel('Bonded force constant - (kcal/mol/A^2)')
-plt.ylabel('Equilibrium bond length - (A)')
-plt.title('Average of bond length distribution vs k_Bond and x_0 - (A)')
-plt.savefig('bond_length_average_vs_k_length_contour.png')
-
-plt.figure()
-CS = plt.contour(grid_x,grid_y,z2)
-plt.clabel(CS, inline=1, fontsize=10)
-plt.xlabel('Bonded force constant - (kcal/mol/A^2)')
-plt.ylabel('Equilibrium bond length - (A)')
-plt.title('Variance of bond length distribution vs k_Bond and x_0 - (A^2)')
-plt.savefig('bond_length_variance_vs_k_length_contour.png')
+plt.savefig('C-H_2D_posterior.png')
+#------------------------------------------------------------------
