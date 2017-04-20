@@ -230,7 +230,7 @@ def sampler(data, samples=4, theta_init=[500,0.8], proposal_width=[10,0.05], plo
     efficiency = float(sum(hits))/float(samples) 
     print efficiency
     return posterior,probs
-posterior,probs = sampler([[1.0920405895833334,0.00090201196735599997],[0.00090201196735599997,2.8009246152166006e-10]],samples=10000)
+posterior,probs = sampler([[1.0920405895833334,0.00090201196735599997],[0.00090201196735599997,2.8009246152166006e-10]],samples=1000000)
 
 x = np.array([a[0] for a in posterior])
 y = np.array([a[1] for a in posterior])
