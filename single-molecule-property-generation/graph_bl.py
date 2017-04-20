@@ -235,11 +235,10 @@ posterior,probs = sampler([[1.0920405895833334,0.00090201196735599997],[0.000902
 x = np.array([a[0] for a in posterior])
 y = np.array([a[1] for a in posterior])
 
-print x
-print y
 
 fig, ax = plt.subplots()
-hb = ax.hexbin(x, y)
+hb = ax.hexbin(x, y, cmap=cm.jet)
+ax.axis([x.min(), x.max(), y.min(), y.max()])
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_title('Frequency of parameter combinations sampled from posterior distribution')
