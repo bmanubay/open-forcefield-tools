@@ -348,7 +348,6 @@ def constructDataFrame(mol_files):
     df = pd.merge(dftemp, df2, how = 'outer', on = 'molecule')
 
     return df, lst_0, lst_1, lst_2
-
 #------------------------------------------------------------------
 
 def ComputeBondsAnglesTorsions(xyz, bonds, angles, torsions):

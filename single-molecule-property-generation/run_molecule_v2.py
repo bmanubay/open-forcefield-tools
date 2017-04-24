@@ -16,7 +16,7 @@ mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
 time_step = 0.8 #Femtoseconds
 temperature = 300 #kelvin
 friction = 1 # per picosecond
-num_steps = 7500000
+num_steps = 37500000
 trj_freq = 1000 #steps
 data_freq = 1000 #steps
 
@@ -75,9 +75,9 @@ for ind,j in enumerate(mol_filename):
         simulation = app.Simulation(topology, system, integrator)
         simulation.context.setPositions(positions)
         simulation.context.setVelocitiesToTemperature(temperature*kelvin)
-        netcdf_reporter = NetCDFReporter('traj4ns_c1143/'+molname[ind]+'_'+smirkseries+'_'+paramtype1+str(i)+'_'+paramtype2+str(j)+'.nc', trj_freq)
+        netcdf_reporter = NetCDFReporter('traj_evidence/'+molname[ind]+'_evidence.nc',trj_freq)#'_'+smirkseries+'_'+paramtype1+str(i)+'_'+paramtype2+str(j)+'.nc', trj_freq)
         simulation.reporters.append(netcdf_reporter)
-        simulation.reporters.append(app.StateDataReporter('StateData4ns_c1143/data_'+molname[ind]+'_'+smirkseries+'_'+paramtype1+str(i)+'_'+paramtype2+str(j)+'.csv', data_freq, step=True, potentialEnergy=True, temperature=True, density=True))
+        simulation.reporters.append(app.StateDataReporter('StateData_evidence/data_'+molname[ind]+'_evidence.csv',data_freq, step=True, potentialEnergy=True, temperature=True, density=True))#'_'+smirkseries+'_'+paramtype1+str(i)+'_'+paramtype2+str(j)+'.csv', data_freq, step=True, potentialEnergy=True, temperature=True, density=True))
 
         print("Starting simulation")
         start = time.clock()
