@@ -1244,7 +1244,8 @@ def sampler(data, samples=10000, theta_init, proposal_width=[10,0.05], plot=Fals
         theta_proposal = [norm(theta_current[j],proposal_width[j]).rvs() for j in range(len(theta_current))]    
         
         # Simulate the new proposed position
-        for AlkEthOH_ID in optparam:
+        # add mol_list argument to sampler function
+        for AlkEthOH_ID in mol_list:
             molname = [AlkEthOH_ID]
             mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
             time_step = 0.8 #Femtoseconds
@@ -1255,7 +1256,7 @@ def sampler(data, samples=10000, theta_init, proposal_width=[10,0.05], plot=Fals
             data_freq = 1000 #steps
                         
             # Load OEMol
-            for ind,j in enumerate(mol_filename):
+            for index,j in enumerate(mol_filename):
                 mol = oechem.OEGraphMol()
                 ifs = oechem.oemolistream(j)
                 flavor = oechem.OEIFlavor_Generic_Default | oechem.OEIFlavor_MOL2_Default | oechem.OEIFlavor_MOL2_Forcefield
@@ -1304,7 +1305,7 @@ def sampler(data, samples=10000, theta_init, proposal_width=[10,0.05], plot=Fals
                 traj_name = 'traj4ns/'+molname[ind]+'_'+filename_string+'.nc'
                 netcdf_reporter = NetCDFReporter(traj_name, trj_freq)
                 simulation.reporters.append(netcdf_reporter)
-                #simulation.reporters.append(app.StateDataReporter('StateData4ns/data_'+molname[ind]+'_'+smirkseries+'_'+paramtype+str(i)+'.csv', data_freq, step=True, potentialEnergy=True, temperature=True, density=True))
+                simulation.reporters.append(app.StateDataReporter('StateData4ns/data_'+molname[ind]+'_'+filename_string+'.csv', data_freq, step=True, potentialEnergy=True, temperature=True, density=True))
 
                 print("Starting simulation")
                 start = time.clock()
@@ -1314,7 +1315,7 @@ def sampler(data, samples=10000, theta_init, proposal_width=[10,0.05], plot=Fals
                 print("Elapsed time %.2f seconds" % (end-start))
                 netcdf_reporter.close()
                 print("Done!")        
-          
+        #**********************************************************  
         # Compute observables at proposed theta with surrgates
         O_av_comp_curr = m_av[0] + m_av[1]*theta_current[1] + m_av[2]*theta_current[1]**2 + m_av[3]*theta_current[0] +\
                      m_av[4]*theta_current[0]*theta_current[1] + m_av[5]*theta_current[0]*(theta_current[1]**2) +\
