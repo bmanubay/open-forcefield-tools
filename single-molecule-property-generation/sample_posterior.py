@@ -47,6 +47,7 @@ import seaborn as sns
 from scipy.stats import norm
 from scipy.stats import multivariate_normal
 import sys
+from collections import OrderedDict
 
 sns.set_style('white')
 sns.set_context('talk')
@@ -118,11 +119,7 @@ def read_or_run(optparam):
     param_list = optparam[AlkEthOH_IDs[0]]
     
     try:
-        #AlkEthOH_id = traj_name.slit('_')[:2]
-        #AlkEthOH_ID = AlkEthOH_id[0] + AlkEthOH_id[1]
-        #param_list = traj_name.rsplit('.',1)[:-1][0].split('_')[2:] 
         traj_name = AlkEthOH_IDs[0]+'_'+filename_string+'.nc'
-        print traj_name
         data, xyzn = read_traj(traj_name) 
     except:
         print('File does not exist!') 
@@ -241,8 +238,7 @@ def constructDataFrame(mol_files):
         OEMols.append(mol)
 
     ff = ForceField(get_data_filename('/data/forcefield/smirff99Frosst.ffxml'))
-    
-    
+     
 
     labels = []
     lst0 = []
@@ -255,7 +251,6 @@ def constructDataFrame(mol_files):
     lst_1 = [[] for i in molnames]
     lst_2 = [[] for i in molnames] 
   
-
  
     for ind, val in enumerate(OEMols):
         label = ff.labelMolecules([val], verbose = False) 
@@ -1122,7 +1117,95 @@ ax1.set(xlabel='mu', ylabel='belief', title='Analytical posterior');
 sns.despine()
 #------------------------------------------------------------------
 
-def sampler(data, samples=4, mu_init=.5, proposal_width=.5, plot=False, mu_prior_mu=0, mu_prior_sd=1.):
+df = pd.read_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
+
+points_av = df.as_matrix(columns=['k_values','length_values','bond_length_average'])
+points_var = df.as_matrix(columns=['k_values','length_values','bond_length_variance'])
+
+def poly_matrix(x, y, order=2):
+    """ generate Matrix use with lstsq """
+    ncols = (order + 1)**2
+    G = np.zeros((x.size, ncols))
+    ij = itertools.product(range(order+1), range(order+1))
+    print ij
+    for k, (i, j) in enumerate(ij):
+        print i,j
+        G[:, k] = x**i * y**j
+   
+    return G
+
+ordr = 2  # order of polynomial
+#x_av_0 = x_av[0]
+#y_av_0 = y_av[0]
+#x_var_0 = x_var[0]
+
+x_av, y_av, z_av = points_av.T
+#x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
+
+x_var, y_var, z_var = points_var.T
+#x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
+
+
+
+# make Matrix:
+G = poly_matrix(x_av, y_av, ordr)
+# Solve for np.dot(G, m) = z:
+m_av = np.linalg.lstsq(G, z_av)[0]
+
+# Solve for np.dot(G, m) = z:
+m_var = np.linalg.lstsq(G, z_var)[0]
+
+
+# Evaluate it on a grid...
+nx, ny = 100, 100
+xx, yy = np.meshgrid(np.linspace(x_av.min(), x_av.max(), nx),
+                     np.linspace(y_av.min(), y_av.max(), ny))
+
+GG = poly_matrix(xx.ravel(), yy.ravel(), ordr)
+zz_av = np.reshape(np.dot(GG, m_av), xx.shape)
+zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
+
+# Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
+fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+ls = LightSource(270, 45)
+rgb = ls.shade(zz_av, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+#heatmap = ax.pcolor(zz_av, cmap=rgb)                  
+#plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
+surf = ax.plot_surface(xx, yy, zz_av, rstride=1, cstride=1, facecolors=rgb,
+                       linewidth=0, antialiased=False, shade=False)
+
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('Average of bond length distribution - (A)')
+ax.plot3D(x_av, y_av, z_av, "o")
+
+fg.canvas.draw()
+plt.savefig('bond_length_average_vs_k_length_w_fit.png')
+
+
+zz_comp = m_var[0] + m_var[1]*yy + m_var[2]*yy**2 + m_var[3]*xx + m_var[4]*xx*yy + m_var[5]*xx*(yy**2) + m_var[6]*xx**2 + m_var[7]*(xx**2)*yy + m_var[8]*(xx**2)*(yy**2)
+
+# Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
+fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+ls = LightSource(270, 45)
+rgb = ls.shade(zz_var, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+surf = ax.plot_surface(xx, yy, zz_var,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
+                       linewidth=0, antialiased=False, shade=False)
+#fg.colorbar(surf, shrink=0.5, aspect=5)
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('Variance of bond length distribution - (A^2)')
+ax.plot3D(x_var, y_var, z_var, "o")
+
+fg.canvas.draw()
+plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
+
+x_av,res_av,rank_av,s_av = np.linalg.lstsq(G, z_av)
+x_var,res_var,rank_var,s_var = np.linalg.lstsq(G, z_var)
+
+#--------------------------------------------------------------
+
+def sampler(data, samples=10000, theta_init, proposal_width=[10,0.05], plot=False, mu_prior_mu=0, mu_prior_sd=1.):
     """
     Outline:
     1)Take data and calculate observable
@@ -1137,68 +1220,183 @@ def sampler(data, samples=4, mu_init=.5, proposal_width=.5, plot=False, mu_prior
             ii)Thus for bonds and angles; we have 4 observables as a function of however many parameters we're working with at the time
             iii)Choice of surrogate model becomes important. Start with splining though
             iv)What is the best surrogate modeling technique to use when we have very sparse data?
-    4)
-   
-            
-          
-
-    Other things to consider:
-    1)Choice of surrogate models:
-        a)Splining
-        b)Rich's ideas
-        c)Other ideas from Michael he got at conference last week
-    2)Choice of likelihood:
-        a)Gaussian likelihood
-        b)More general based on mean squared error
-    3)Prior
-        a)Start with uniforms with physically relevant bounds for given parameter
-        b)Informationless priors
-  
-    Expanding initial knowledge region using MBAR
-    1) Simulate single thermodynamic state
-    2) Use MBAR to reweight in parameter space
-        a) Will go to full extent of parameters within region where we know MBAR estimates are good
-        b) Reweighting at multiple steps to full extent and along diagonals between parameters in order to create grid of points of evidence
-        c) Now we cheaply achieved a region of evidence vs a single point
-    3) Can fit our hypercube to multiple planes
-        a) Assuming trends in very local space will be incredibly linear
-        b) Probably a pretty safe assumption given minute change in parameter
+    4)Will wait until surrogate either stops changing or we get 
+     
+    Notes: Initial conditions should be a dictionary in order to track what SMIRKS are changing and initiate the simulations as needed
+    theta_init = OrderedDict([('[#6X4:1]-[#1:2]',OrderedDict([('k',500),('length',0.8)])),('[#6X4:1]-[#6X4:2]',OrderedDict([('k',700),('length',1.6)]))])
     """
-    # Begin process by loading a prescribed simulation or performing it if it doesn't exist in the specified directory
-    
-    mu_current = mu_init
-    posterior = [mu_current]
-    for i in range(samples):
-        # suggest new position
-        mu_proposal = norm(mu_current, proposal_width).rvs()
+    # Begin process by initializing a dataframe where the posterior values will be stored
+    posterior_columns = [j+'_'+jj for j in theta_init for jj in theta_init[j]] 
+    posterior = pd.DataFrame(columns=posterior_columns)
 
-        # Compute likelihood by multiplying probabilities of each data point
-        likelihood_current = norm(mu_current, 1).pdf(data).prod()
-        likelihood_proposal = norm(mu_proposal, 1).pdf(data).prod()
+    SMIRKS_and_params = [[j,jj] for j in theta_inti for jj in theta_init[j]]
+ 
+    theta_current = [theta_init[j][jj] for j in theta_init for jj in theta_init[j]]
+ 
+    # the theta_proposal must be the same size as the proposal_width. If not, exit()
+    if len(theta_current)!=len(proposal_width):
+        raise ValueError('Every parameter being changed must have a specified proposal width')
+ 
+    posterior.loc[0] = [theta_init[j][jj] for j in theta_init for jj in theta_init[j]]
+    hits = []
+    for ind,i in enumerate(range(samples)):
+        # suggest new position
+        theta_proposal = [norm(theta_current[j],proposal_width[j]).rvs() for j in range(len(theta_current))]    
         
-        # Compute prior probability of current and proposed mu        
-        prior_current = norm(mu_prior_mu, mu_prior_sd).pdf(mu_current)
-        prior_proposal = norm(mu_prior_mu, mu_prior_sd).pdf(mu_proposal)
+        # Simulate the new proposed position
+        for AlkEthOH_ID in optparam:
+            molname = [AlkEthOH_ID]
+            mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
+            time_step = 0.8 #Femtoseconds
+            temperature = 300 #kelvin
+            friction = 1 # per picosecond
+            num_steps = 5000000
+            trj_freq = 1000 #steps
+            data_freq = 1000 #steps
+                        
+            # Load OEMol
+            for ind,j in enumerate(mol_filename):
+                mol = oechem.OEGraphMol()
+                ifs = oechem.oemolistream(j)
+                flavor = oechem.OEIFlavor_Generic_Default | oechem.OEIFlavor_MOL2_Default | oechem.OEIFlavor_MOL2_Forcefield
+                ifs.SetFlavor( oechem.OEFormat_MOL2, flavor)
+                oechem.OEReadMolecule(ifs, mol )
+                oechem.OETriposAtomNames(mol)
+
+                # Get positions
+                coordinates = mol.GetCoords()
+                natoms = len(coordinates)
+                positions = np.zeros([natoms,3], np.float64)
+                for index in range(natoms):
+                    (x,y,z) = coordinates[index]
+                    positions[index,0] = x
+                    positions[index,1] = y
+                    positions[index,2] = z
+                positions = Quantity(positions, angstroms)
+                
+                # Load forcefield
+                forcefield = ForceField(get_data_filename('forcefield/smirff99Frosst.ffxml'))
+
+                # Define system
+                topology = generateTopologyFromOEMol(mol)
+                params = forcefield.getParameter(smirks='[#1:1]-[#8]')
+                params['rmin_half']='0.01'
+                params['epsilon']='0.01'
+                forcefield.setParameter(params, smirks='[#1:1]-[#8]')
+                for ind,i in enumerate(SMIRKS_and_params):
+                    params = forcefield.getParameter(smirks=i[0])
+                    params[i[1]]=str(theta_proposal[ind])
+                    forcefield.setParameter(params,smirks=i[0])
+                system = forcefield.createSystem(topology, [mol])
+
+                filename_string = []
+                for ind,i in enumerate(SMIRKS_and_params):
+                   temp = i[0]+'_'+i[1]+'_'+str(theta_proposal[ind])
+                    filename_string.append(temp)
+                filename_string = '_'.join(filename_string)                 
+                
+                #Do simulation
+                integrator = mm.LangevinIntegrator(temperature*kelvin, friction/picoseconds, time_step*femtoseconds)
+                platform = mm.Platform.getPlatformByName('Reference')
+                simulation = app.Simulation(topology, system, integrator)
+                simulation.context.setPositions(positions)
+                simulation.context.setVelocitiesToTemperature(temperature*kelvin)
+                traj_name = 'traj4ns/'+molname[ind]+'_'+filename_string+'.nc'
+                netcdf_reporter = NetCDFReporter(traj_name, trj_freq)
+                simulation.reporters.append(netcdf_reporter)
+                #simulation.reporters.append(app.StateDataReporter('StateData4ns/data_'+molname[ind]+'_'+smirkseries+'_'+paramtype+str(i)+'.csv', data_freq, step=True, potentialEnergy=True, temperature=True, density=True))
+
+                print("Starting simulation")
+                start = time.clock()
+                simulation.step(num_steps)
+                end = time.clock()
+
+                print("Elapsed time %.2f seconds" % (end-start))
+                netcdf_reporter.close()
+                print("Done!")        
+          
+        # Compute observables at proposed theta with surrgates
+        O_av_comp_curr = m_av[0] + m_av[1]*theta_current[1] + m_av[2]*theta_current[1]**2 + m_av[3]*theta_current[0] +\
+                     m_av[4]*theta_current[0]*theta_current[1] + m_av[5]*theta_current[0]*(theta_current[1]**2) +\
+                     m_av[6]*theta_current[0]**2 + m_av[7]*(theta_current[0]**2)*theta_current[1] +\
+                     m_av[8]*(theta_current[0]**2)*(theta_current[1]**2)
+
+        O_var_comp_curr = m_var[0] + m_var[1]*theta_current[1] + m_var[2]*theta_current[1]**2 + m_var[3]*theta_current[0] +\
+                     m_var[4]*theta_current[0]*theta_current[1] + m_var[5]*theta_current[0]*(theta_current[1]**2) +\
+                     m_var[6]*theta_current[0]**2 + m_var[7]*(theta_current[0]**2)*theta_current[1] +\
+                     m_var[8]*(theta_current[0]**2)*(theta_current[1]**2)
+
+        O_comp_curr = [O_av_comp_curr,O_var_comp_curr]
+ 
+
+        O_av_comp_prop = m_av[0] + m_av[1]*theta_proposal[1] + m_av[2]*theta_proposal[1]**2 + m_av[3]*theta_proposal[0] +\
+                     m_av[4]*theta_proposal[0]*theta_proposal[1] + m_av[5]*theta_proposal[0]*(theta_proposal[1]**2) +\
+                     m_av[6]*theta_proposal[0]**2 + m_av[7]*(theta_proposal[0]**2)*theta_proposal[1] +\
+                     m_av[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)
+
+        O_var_comp_prop = m_var[0] + m_var[1]*theta_proposal[1] + m_var[2]*theta_proposal[1]**2 + m_var[3]*theta_proposal[0] + \
+                     m_var[4]*theta_proposal[0]*theta_proposal[1] + m_var[5]*theta_proposal[0]*(theta_proposal[1]**2) + \
+                     m_var[6]*theta_proposal[0]**2 + m_var[7]*(theta_proposal[0]**2)*theta_proposal[1] + \
+                     m_var[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)         
+        
+        O_comp_prop = [O_av_comp_prop,O_var_comp_prop]
+
+    
+        # Compute likelihood by multiplying probabilities of each data point
+        likelihood_current = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_curr[j])**2)/(2*data[1][j])) 
+                             for j in range(len(data))]))
+        likelihood_proposal = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_prop[j])**2)/(2*data[1][j]))
+                              for j in range(len(data))]))
+
+
+        # Compute prior probability of current and proposed mu    
+        prior_current = norm(theta_current[0],theta_current[1]).pdf(theta_current[0])  
+        prior_proposal = norm(theta_proposal[0],theta_proposal[1]).pdf(theta_proposal[0])
         
         p_current = likelihood_current * prior_current
         p_proposal = likelihood_proposal * prior_proposal
-        
+      
         # Accept proposal?
         p_accept = p_proposal / p_current
-        
+         
         # Usually would include prior probability, which we neglect here for simplicity
         accept = np.random.rand() < p_accept
-        
-        if plot:
-            plot_proposal(mu_current, mu_proposal, mu_prior_mu, mu_prior_sd, data, accept, posterior, i)
+
+        #if plot:
+        #    plot_proposal(mu_current, mu_proposal, mu_prior_mu, mu_prior_sd, data, accept, posterior, i)
         
         if accept:
             # Update position
-            mu_current = mu_proposal
-        
-        posterior.append(mu_current)
-        
-    return posterior
+            theta_current = theta_proposal
+            hits.append(1)
+            print "%s out of %s MCMC steps completed. Prior current = %s" % (i,samples,prior_current)
+        else:
+            hits.append(0)
+        posterior.append(theta_current)
+        probs.append(float(likelihood_current*prior_current))
+    efficiency = float(sum(hits))/float(samples) 
+    
+    return posterior,probs
+
+#-----------------------------------------------------------------
+
+posterior,probs = sampler([[1.0920405895833334,0.00090201196735599997],[0.00090201196735599997,2.8009246152166006e-10]],samples=1000000)
+
+x = np.array([a[0] for a in posterior])
+y = np.array([a[1] for a in posterior])
+
+
+fig, ax = plt.subplots()
+hb = ax.hexbin(x, y, cmap=cm.jet)
+ax.axis([625.0, 725.0, 0.95, 1.20])
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_title('Frequency of parameter combinations sampled from posterior distribution')
+cb = fig.colorbar(hb, ax=ax)
+cb.set_label('Frequency')
+
+plt.savefig('C-H_2D_posterior.png')
+#------------------------------------------------------------------
 #------------------------------------------------------------------
 # Function to display
 #------------------------------------------------------------------
