@@ -1523,12 +1523,6 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                 y += np.exp(np.cos(x-a)/sd)/denom
                                 y /= ntotal
 
-#plt.plot(x,y,label = 'kernel density estimate (KDE)')
-#plt.title('comparison between histogram and (KDE)')
-#plt.xlabel('x (radians)')
-#plt.ylabel('P(x)')
-#plt.legend()
-#plt.show()
 
                             pmf = -kT*np.log(y) # now we have the PMF
 
@@ -1549,14 +1543,6 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                 cf[i] = cn(i,pmf)
 
                             y1 = np.array([ft(xi,cf,Ns).real for xi in x])  # plot the fourier series approximation.
-#plt.figure(2)
-#plt.plot(x,pmf, label='pmf')
-#plt.plot(x,y1, label='Fourier transform')
-#plt.title('comparison between PMF and Fourier Transform')
-#plt.legend()
-#plt.xlabel('x (radians)')
-#plt.ylabel('Potential of Mean Force (kT)')
-#plt.show()
   
                             # OK, Fourier series works pretty well.  But we actually want to do a
                             # linear least square fit to a fourier series, since we want to get
@@ -1610,11 +1596,7 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                             observables_posterior.set_value(mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c3',cl[3])
                             observables_posterior.set_value(mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c4',cl[4])
                             observables_posterior.set_value(mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c5',cl[5])
-                            #obs_per_smirk.append(obs_per_ind)
-                # This outside the `if` statement
-            print observables_posterior
-            pdb.set_trace()
-            #Observables_current.append(obs_per_smirk)
+           #Observables_current.append(obs_per_smirk)
             
             
                

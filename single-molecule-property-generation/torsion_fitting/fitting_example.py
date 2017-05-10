@@ -1,3 +1,6 @@
+import matplotlib as mpl
+mpl.use('Agg')
+
 import math
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,7 +38,7 @@ plt.title('comparison between histogram and (KDE)')
 plt.xlabel('x (radians)')
 plt.ylabel('P(x)')
 plt.legend()
-plt.show()
+plt.savefig('KDE.png')
 
 pmf = -kT*np.log(y) # now we have the PMF
 
@@ -50,7 +53,7 @@ def ft(x, cn, Nh):
    return f.sum()+cn[0]
 
 # generate Fourier series (complex)
-Ns = 15 # needs to be adjusted 
+Ns = 1 # needs to be adjusted 
 cf = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cf[i] = cn(i,pmf)
@@ -63,7 +66,7 @@ plt.title('comparison between PMF and Fourier Transform')
 plt.legend()
 plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
-plt.show()
+plt.savefig('PMFfitFourier.png')
 
 # OK, Fourier series works pretty well.  But we actually want to do a
 # linear least square fit to a fourier series, since we want to get
@@ -83,6 +86,7 @@ for i in range(2*Ns+1):
     Sinv[i,i] = 1/S[i]
 cm = V.transpose()*Sinv*U.transpose()*np.matrix(pmf).transpose()  # get the linear constants
 cl = np.array(cm) # cast back to array for plotting
+print cl
 # check that it works by plotting
 y2 = cl[0]*np.ones(len(x))
 for i in range(1,Ns+1):
@@ -109,7 +113,7 @@ plt.title('Comparison between PMF and linear least squares fit')
 plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
 plt.legend()
-plt.show()
+plt.savefig('PMFfitLLS.png')
 
 #Compare the LLS and the fourier transform directly.
 plt.figure(4)
@@ -119,7 +123,7 @@ plt.title('Comparison between Fourier and finite linear least squares fit')
 plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
 plt.legend()
-plt.show()
+plt.savefig('Fourier_vs_LLS.png')
 print "the same!"
 
 # determine the covariance matrix for the fitting parameters
