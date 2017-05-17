@@ -48,8 +48,9 @@ from scipy.stats import norm
 from scipy.stats import multivariate_normal
 import sys
 from collections import OrderedDict
-
-
+from itertools import combinations
+from sklearn import *
+from sklearn.preprocessing import PolynomialFeatures
 
 sns.set_style('white')
 sns.set_context('talk')
@@ -1388,13 +1389,13 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                 for i in j:
                     observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_length_average')
                     observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_length_variance')
-                    observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_length_variance_variance')
+                    #observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_length_variance_variance')
         if obs_types[SMIRKS_index]=='Angle':
             for inds,j in SMIRKS_instances:
                 for i in j:
                     observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_angle_average')
                     observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_angle_variance')
-                    observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_angle_variance_variance')
+                    #observables_posterior_columns.append(mol_list[index]+'_'+SMIRKS[inds]+'_'+str(i)+'_angle_variance_variance')
         if obs_types[SMIRKS_index]=='Torsion':
             for inds,j in SMIRKS_instances:
                 for i in j:
@@ -1415,13 +1416,15 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                 current_trajectories = simulate_series_for_posterior(mol_list,SMIRKS_and_params,theta_current) 
         # suggest new position
         theta_proposal = [norm(theta_current[j],proposal_width[j]).rvs() for j in range(len(theta_current))]    
-        
-        if parallel==True: 
-        # pass simulation commands to queue and run all molecules simultaneously at prescribed state  
-            proposed_trajectories = simulate_on_cluster_for_posterior(mol_list,SMIRKS_and_params,theta_proposal,'slurm_posterior.sh')
-        else:
-            proposed_trajectories = simulate_series_for_posterior(mol_list,SMIRKS_and_params,theta_proposal) 
-       
+ 
+        if (ind < 10) or (ind % 20 == 0):
+            #Directly simulate the first 10 steps or every 20 after that
+            if parallel==True: 
+                # pass simulation commands to queue and run all molecules simultaneously at prescribed state  
+                proposed_trajectories = simulate_on_cluster_for_posterior(mol_list,SMIRKS_and_params,theta_proposal,'slurm_posterior.sh')
+            else:
+                proposed_trajectories = simulate_series_for_posterior(mol_list,SMIRKS_and_params,theta_proposal) 
+ 
         Observables_current = []
         Observables_proposal = []
         if ind==0:
@@ -1447,6 +1450,7 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                         N = np.array([len(lst) for lst in A_kn],int)
                         A_average = np.array([np.mean(A) for A in A_kn])
                         A_variance = np.array([np.var(A) for A in A_kn])
+
                         #implement bootstrapping to get variance of variance estimate
                         A_variance_boots = []
                         nBoots_work = 200
@@ -1460,14 +1464,11 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                     A_variance_boots.append([np.var(A[booti]) for A in A_kn])
                         A_variance_boots = np.vstack(np.array(A_variance_boots))
                         A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
                         
                         for jjj,value in enumerate(SMIRKSS):              
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_average',A_average[jjj])
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance_variance',A_variance_variance[jjj])
-                #print observables_posterior
-                #pdb.set_trace()
+                            #observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance_variance',A_variance_variance[jjj])
                     if obs_types[inds]=="Angle":
                         timeser = timeser[1]
                         A_kn = np.array([timesers[match] for match in SMIRKSS])
@@ -1488,12 +1489,11 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                     A_variance_boots.append([np.var(A[booti]) for A in A_kn])
                         A_variance_boots = np.vstack(np.array(A_variance_boots))
                         A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
                         
                         for jjj,value in enumerate(SMIRKSS):
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_average',A_average[jjj])
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance_variance',A_variance_variance[jjj])
+                            #observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance_variance',A_variance_variance[jjj])
 
                     if obs_types[inds]=="Torsion":
                         timeser = timeser[2]
@@ -1568,28 +1568,13 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                 y2 += cl[2*i-1]*np.sin(i*x)
                                 y2 += cl[2*i]*np.cos(i*x)
 
-                            #How different are the coeficients by the two methods?
-                            print "Difference between Fourier series and linear fit to finite Fourier"
-                            print "index   Four   Fit  Diff" 
-                            for i in range(2*Ns+1):
-                                if i==0:
-                                    cfp = cf[i].real
-                                elif i%2==0:
-                                    cfp = 2*cf[i/2].real
-                                elif i%2==1:
-                                    cfp = -2*cf[(i+1)/2].imag
-                                print "{:3d} {:10.5f} {:10.5f} {:10.5f}".format(i,cfp,float(cl[i]),cfp-float(cl[i]))
-                            print "Looks like they are the same!"
 
                             # determine the covariance matrix for the fitting parameters
                             dev = pmf - np.array(ZM*cm).transpose()
                             residuals = np.sum(dev**2)
                             s2 = residuals /(len(pmf) - 2*Ns+1)  
                             cov = s2*(V.transpose()*np.linalg.inv(np.diag(S**2))*V)
-                            print "Covariance matrix is:"
-                            print cov
-                            print "seem to be no nonzero off-diagonal elements! Uncorrelated!  Probably because of orthogonality of Fourier series."
-                            #obs_per_ind.append([SMIRKSS_ind[index],U,S,V,cov])
+                            
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c0',cl[0])
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c1',cl[1])
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c2',cl[2])
@@ -1597,7 +1582,8 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c4',cl[4])
                             observables_posterior.set_value(ind,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c5',cl[5])
 
-            # And calculate observables for proposed state
+        if ind < 10 or ind % 20 == 0:
+            # And calculate observables for proposed state by simulation
             for index,ii in enumerate(proposed_trajectories):
                 data,xyz = read_traj(ii)#,-1000:)
                 AtomDict = get_small_mol_dict(['Mol2_files/'+mol_list[index]+'.mol2'])[0]
@@ -1619,6 +1605,7 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                         N = np.array([len(lst) for lst in A_kn],int)
                         A_average = np.array([np.mean(A) for A in A_kn])
                         A_variance = np.array([np.var(A) for A in A_kn])
+
                         #implement bootstrapping to get variance of variance estimate
                         A_variance_boots = []
                         nBoots_work = 200
@@ -1632,14 +1619,11 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                     A_variance_boots.append([np.var(A[booti]) for A in A_kn])
                         A_variance_boots = np.vstack(np.array(A_variance_boots))
                         A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
 
                         for jjj,value in enumerate(SMIRKSS):
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_average',A_average[jjj])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance_variance',A_variance_variance[jjj])
-                #print observables_posterior
-                #pdb.set_trace()
+                            #observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance_variance',A_variance_variance[jjj])
                     if obs_types[inds]=="Angle":
                         timeser = timeser[1]
                         A_kn = np.array([timesers[match] for match in SMIRKSS])
@@ -1647,6 +1631,7 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                         N = np.array([len(lst) for lst in A_kn],int)
                         A_average = np.array([np.mean(A) for A in A_kn])
                         A_variance = np.array([np.var(A) for A in A_kn])
+
                         #implement bootstrapping to get variance of variance estimate
                         A_variance_boots = []
                         nBoots_work = 200
@@ -1660,12 +1645,11 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                     A_variance_boots.append([np.var(A[booti]) for A in A_kn])
                         A_variance_boots = np.vstack(np.array(A_variance_boots))
                         A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
 
                         for jjj,value in enumerate(SMIRKSS):
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_average',A_average[jjj])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance_variance',A_variance_variance[jjj])
+                            #observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance_variance',A_variance_variance[jjj])
 
                     if obs_types[inds]=="Torsion":
                         timeser = timeser[2]
@@ -1728,7 +1712,7 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                 Z[:,2*i] = np.cos(i*x)
                             ZM = np.matrix(Z) # easier to manipulate as a matrix
                             [U,S,V] = np.linalg.svd(ZM)    # perform SVD  - S has an interesting shape, is just 1, sqrt(2), sqrt(2). Probably has
-                                                       # to do with the normalization.  Still need V and U, though.
+                                                           # to do with the normalization.  Still need V and U, though.
                             Sinv = np.matrix(np.zeros(np.shape(Z))).transpose()  # get the inverse of the singular matrix.
                             for i in range(2*Ns+1):
                                 Sinv[i,i] = 1/S[i]
@@ -1740,295 +1724,76 @@ def sampler(data, mol_list, samples, theta_init, proposal_width, parallel=True):
                                 y2 += cl[2*i-1]*np.sin(i*x)
                                 y2 += cl[2*i]*np.cos(i*x)
 
-                            #How different are the coeficients by the two methods?
-                            print "Difference between Fourier series and linear fit to finite Fourier"
-                            print "index   Four   Fit  Diff"
-                            for i in range(2*Ns+1):
-                                if i==0:
-                                    cfp = cf[i].real
-                                elif i%2==0:
-                                    cfp = 2*cf[i/2].real
-                                elif i%2==1:
-                                    cfp = -2*cf[(i+1)/2].imag
-                                print "{:3d} {:10.5f} {:10.5f} {:10.5f}".format(i,cfp,float(cl[i]),cfp-float(cl[i]))
-                            print "Looks like they are the same!"
-
                             # determine the covariance matrix for the fitting parameters
                             dev = pmf - np.array(ZM*cm).transpose()
                             residuals = np.sum(dev**2)
                             s2 = residuals /(len(pmf) - 2*Ns+1)
                             cov = s2*(V.transpose()*np.linalg.inv(np.diag(S**2))*V)
-                            print "Covariance matrix is:"
-                            print cov
-                            print "seem to be no nonzero off-diagonal elements! Uncorrelated!  Probably because of orthogonality of Fourier series."
-                            #obs_per_ind.append([SMIRKSS_ind[index],U,S,V,cov])
+
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c0',cl[0])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c1',cl[1])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c2',cl[2])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c3',cl[3])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c4',cl[4])
                             observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c5',cl[5])              
-        else:
-            # compute observables at only proposed state and treat last proposed state as current
-            for index,ii in enumerate(proposed_trajectories):
-                data,xyz = read_traj(ii)#,-1000:)
-                AtomDict = get_small_mol_dict(['Mol2_files/'+mol_list[index]+'.mol2'])[0]
-
-                observables = ComputeBondsAnglesTorsions(xyz,AtomDict['Bond'],AtomDict['Angle'],AtomDict['Torsion'])
-                num_obs = [len(a[0]) for a in observables] # get number of unique observables in molecule
-                timeser = [[a[:,d] for d in range(g)] for a,g in zip(observables,num_obs)] # re-organize data into timeseries'
-
-                SMIRKS_instances = []
-                for SMIRKS_index,SMIRKS_s in enumerate(SMIRKS):
-                    SMIRKS_instances.append(find_smirks_instance('Mol2_files/'+mol_list[index]+'.mol2',SMIRKS_s))
-                obs_per_smirk=[]
-                for inds,SMIRKSS in enumerate(SMIRKS_instances):
-
-                    if obs_types[inds]=="Bond":
-                        timesers = timeser[0]
-                        A_kn = np.array([timesers[match] for match in SMIRKSS])
-                        SMIRKSS_inds = np.array([match for match in SMIRKSS],int)
-                        N = np.array([len(lst) for lst in A_kn],int)
-                        A_average = np.array([np.mean(A) for A in A_kn])
-                        A_variance = np.array([np.var(A) for A in A_kn])
-                        #implement bootstrapping to get variance of variance estimate
-                        A_variance_boots = []
-                        nBoots_work = 200
-                        for n in range(nBoots_work):
-                            for k in range(len(A_kn)):
-                                if N[k] > 0:
-                                    if (n == 0):
-                                        booti = np.array(range(N[k]),int)
-                                    else:
-                                        booti = np.random.randint(N[k], size = N[k])
-                                    A_variance_boots.append([np.var(A[booti]) for A in A_kn])
-                        A_variance_boots = np.vstack(np.array(A_variance_boots))
-                        A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
-
-                        for jjj,value in enumerate(SMIRKSS):
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_average',A_average[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_length_variance_variance',A_variance_variance[jjj])
-                #print observables_posterior
-                #pdb.set_trace()
-                    if obs_types[inds]=="Angle":
-                        timeser = timeser[1]
-                        A_kn = np.array([timesers[match] for match in SMIRKSS])
-                        SMIRKSS_inds = np.array([match for match in SMIRKSS],int)
-                        N = np.array([len(lst) for lst in A_kn],int)
-                        A_average = np.array([np.mean(A) for A in A_kn])
-                        A_variance = np.array([np.var(A) for A in A_kn])
-                        #implement bootstrapping to get variance of variance estimate
-                        A_variance_boots = []
-                        nBoots_work = 200
-                        for n in range(nBoots_work):
-                            for k in range(len(A_kn)):
-                                if N[k] > 0:
-                                    if (n == 0):
-                                        booti = np.array(range(N[k]),int)
-                                    else:
-                                        booti = np.random.randint(N[k], size = N[k])
-                                    A_variance_boots.append([np.var(A[booti]) for A in A_kn])
-                        A_variance_boots = np.vstack(np.array(A_variance_boots))
-                        A_variance_variance = np.array([np.var(A_variance_boots[:,i]) for i in range(len(SMIRKSS))])
-                        #obs_per_smirk.append([SMIRKSS_inds,A_average,A_variance,A_variance_variance])
-
-                        for jjj,value in enumerate(SMIRKSS):
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_average',A_average[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance',A_variance[jjj])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+str(value)+'_angle_variance_variance',A_variance_variance[jjj])
-
-                    if obs_types[inds]=="Torsion":
-                        timeser = timeser[2]
-                        #pmf thing
-                        A_kn = [timeser[match] for match in SMIRKSS]
-                        SMIRKSS_inds = [match for match in SMIRKSS]
-                        obs_per_ind = []
-                        for indexx,A in enumerate(A_kn):
-                            num_bins = 100
-                            ntotal = len(A)
-                            # figure out what the width of the kernel density is.
-                            # the "rule-of-thumb" estimator used std, but that is for gaussian.  We should use instead
-                            # the stdev of the Gaussian-like features. Playing around with what it looks like, then something
-                            # like 12 degress as 2 sigma? So sigma is about  degrees = 3/360 * 2*pi = 0.0524
-                            # this gives a relatively smooth PMF, without smoothing too much.
-                            # this will of course depend on the temperature the simulation is run at.
-
-                            sd = 1.06*0.0524*ntotal**(-0.2)
-                            # create a fine grid
-                            ngrid = 10000
-                            kT = 300*kB  # units of kcal/mol
-                            x = np.arange(-np.pi,np.pi,(2*np.pi)/ngrid)
-                            y = np.zeros(ngrid)
-                            # Easier to use a von Mises distribution than a wrapped Gaussian.
-                            denom = 2*np.pi*scipy.special.iv(0,1/sd)
-                            for a in A:
-                                y += np.exp(np.cos(x-a)/sd)/denom
-                                y /= ntotal
-
-
-                            pmf = -kT*np.log(y) # now we have the PMF
-
-                            # adapted from http://stackoverflow.com/questions/4258106/how-to-calculate-a-fourier-series-in-numpy
-                            # complex fourier coefficients
-                            def cn(n,y):
-                                c = y*np.exp(-1j*n*x)
-                                return c.sum()/c.size
-
-                            def ft(x, cn, Nh):
-                                f = np.array([2*cn[i]*np.exp(1j*i*x) for i in range(1,Nh+1)])
-                                return f.sum()+cn[0]
-
-                            # generate Fourier series (complex)
-                            Ns = 6 # needs to be adjusted
-                            cf = np.zeros(Ns+1,dtype=complex)
-                            for i in range(Ns+1):
-                                cf[i] = cn(i,pmf)
-
-                            y1 = np.array([ft(xi,cf,Ns).real for xi in x])  # plot the fourier series approximation.
-
-                            # OK, Fourier series works pretty well.  But we actually want to do a
-                            # linear least square fit to a fourier series, since we want to get
-                            # the coefficients out.  Let's use the standard LLS formulation with
-                            # normal equations.
-                            # http://www.math.uconn.edu/~leykekhman/courses/MATH3795/Lectures/Lecture_9_Linear_least_squares_SVD.pdf
-                            # basis functions are 1, sin(x), cos(x), sin(2x), cos(2x), . . .
-                            Z = np.ones([len(x),2*Ns+1])
-                            for i in range(1,Ns+1):
-                                Z[:,2*i-1] = np.sin(i*x)
-                                Z[:,2*i] = np.cos(i*x)
-                            ZM = np.matrix(Z) # easier to manipulate as a matrix
-                            [U,S,V] = np.linalg.svd(ZM)    # perform SVD  - S has an interesting shape, is just 1, sqrt(2), sqrt(2). Probably has
-                                                       # to do with the normalization.  Still need V and U, though.
-                            Sinv = np.matrix(np.zeros(np.shape(Z))).transpose()  # get the inverse of the singular matrix.
-                            for i in range(2*Ns+1):
-                                Sinv[i,i] = 1/S[i]
-                            cm = V.transpose()*Sinv*U.transpose()*np.matrix(pmf).transpose()  # get the linear constants
-                            cl = np.array(cm) # cast back to array for plotting
-                            # check that it works by plotting
-                            y2 = cl[0]*np.ones(len(x))
-                            for i in range(1,Ns+1):
-                                y2 += cl[2*i-1]*np.sin(i*x)
-                                y2 += cl[2*i]*np.cos(i*x)
-
-                            #How different are the coeficients by the two methods?
-                            print "Difference between Fourier series and linear fit to finite Fourier"
-                            print "index   Four   Fit  Diff"
-                            for i in range(2*Ns+1):
-                                if i==0:
-                                    cfp = cf[i].real
-                                elif i%2==0:
-                                    cfp = 2*cf[i/2].real
-                                elif i%2==1:
-                                    cfp = -2*cf[(i+1)/2].imag
-                                print "{:3d} {:10.5f} {:10.5f} {:10.5f}".format(i,cfp,float(cl[i]),cfp-float(cl[i]))
-                            print "Looks like they are the same!"
-
-                            # determine the covariance matrix for the fitting parameters
-                            dev = pmf - np.array(ZM*cm).transpose()
-                            residuals = np.sum(dev**2)
-                            s2 = residuals /(len(pmf) - 2*Ns+1)
-                            cov = s2*(V.transpose()*np.linalg.inv(np.diag(S**2))*V)
-                            print "Covariance matrix is:"
-                            print cov
-                            print "seem to be no nonzero off-diagonal elements! Uncorrelated!  Probably because of orthogonality of Fourier series."
-                            #obs_per_ind.append([SMIRKSS_ind[index],U,S,V,cov])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c0',cl[0])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c1',cl[1])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c2',cl[2])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c3',cl[3])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c4',cl[4])
-                            observables_posterior.set_value(ind+1,mol_list[index]+'_'+SMIRKS[inds]+'_'+SMIRKS_ind[index]+'_torsion_pmf_fit_c5',cl[5])
-        print observables_posterior
-        pdb.set_trace() 
-        if ind>4:
+        if (ind >= 10) and (ind % 20 == 1):
             try:
                 #Make surrogate model and find area of highest probability. Move there. Going to start with a general additive model and see how that works
                 obs_names = observables_posterior.columns.values
-                obs_data = np.zeros([len(obs_names),ind],np.float64)
-                for name_ind,name obs_names:
-                    obs_data[name_ind,:] = observables_posterior[name]
-                # Model will have as many main factors as there are proposed moves in parameter (i.e. the number of parameters we're tracking in the posterior)
-                num_main_factors = len(posterior.columns.values)
-                # total number of model parameters will be equal to number of combinations that can be made from main (i.e 2^n - 1 unique combinations)
-                num_factors_tot = 2**num_main_factors - 1
-                # GAM will also include a 0th term (intercept) so will have total of 2^n factors
-                num_factor_tot = num_factors_tot + 1
-               # Let's try this:    http://scikit-learn.org/stable/modules/linear_model.html 
-                def poly_matrix(x, y, order=2):
-                # generate Matrix use with lstsq
-                    ncols = (order + 1)**2
-                    G = np.zeros((x.size, ncols))
-                    ij = itertools.product(range(order+1), range(order+1))
-                    for k, (i, j) in enumerate(ij):
-                        G[:, k] = x**i * y**j
+                obs_data = np.zeros([ind,len(obs_names)],np.float64)
+                for name_ind,name in enumerate(obs_names):
+                    obs_data[:,name_ind] = observables_posterior[name]
+                
+                var_names = posterior.columns.values
+                var_data = np.zeros([ind,len(var_names)],np.float64)
+                for var_ind,var in enumerate(var_names):
+                    var_data[:,var_ind] = posterior[var]
+                
+                def sk_poly_fit(X,y,X_prop):
+                # Fit surrogate model for observables with an N-th order polynomial fit. Order to be determined by testing R-sq of many different
+                # fits across a range of orders
+                    order = []
+                    resids = []
+                    sum_resid = []
+                    Rsq = []
+                    for i in range(30):
+                        poly = PolynomialFeatures(i) 
 
-                    return G
+                        X_ = poly.fit_transform(X)
+                        
+                        reg = linear_model.LinearRegression()
+                        reg.fit(X_,y)
+                        R2 = reg.score(X_,y)
+    
+                        order.append(i)
+                        sum_resid.append(sum(reg.predict(X_) - y))
+                        resids.append(reg.predict(X_) - y)
+                        Rsq.append(R2)
+                   
+                    best_fit_index = Rsq.index(max(Rsq))
+                    
+                    poly = PolynomialFeatures(order[best_fit_index])
+                   
+                    X_ = poly.fit_transform(X)
 
-ordr = 2  # order of polynomial
-#x_av_0 = x_av[0]
-#y_av_0 = y_av[0]
-#x_var_0 = x_var[0]
-
-x_av, y_av, z_av = points_av.T
-#x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
-
-x_var, y_var, z_var = points_var.T
-#x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
-
-
-
-# make Matrix:
-G = poly_matrix(x_av, y_av, ordr)
-# Solve for np.dot(G, m) = z:
-m_av = np.linalg.lstsq(G, z_av)[0]
-
-# Solve for np.dot(G, m) = z:
-m_var = np.linalg.lstsq(G, z_var)[0]
-
-
-# Evaluate it on a grid...
-nx, ny = 100, 100
-xx, yy = np.meshgrid(np.linspace(x_av.min(), x_av.max(), nx),
-                     np.linspace(y_av.min(), y_av.max(), ny))
-
-GG = poly_matrix(xx.ravel(), yy.ravel(), ordr)
-zz_av = np.reshape(np.dot(GG, m_av), xx.shape)
-zz_var = np.reshape(np.dot(GG, m_var), xx.shape)                
-#*************************************************************************                    
-        # Compute observables at proposed theta with surrgates
-        O_av_comp_curr = m_av[0] + m_av[1]*theta_current[1] + m_av[2]*theta_current[1]**2 + m_av[3]*theta_current[0] +\
-                     m_av[4]*theta_current[0]*theta_current[1] + m_av[5]*theta_current[0]*(theta_current[1]**2) +\
-                     m_av[6]*theta_current[0]**2 + m_av[7]*(theta_current[0]**2)*theta_current[1] +\
-                     m_av[8]*(theta_current[0]**2)*(theta_current[1]**2)
-
-        O_var_comp_curr = m_var[0] + m_var[1]*theta_current[1] + m_var[2]*theta_current[1]**2 + m_var[3]*theta_current[0] +\
-                     m_var[4]*theta_current[0]*theta_current[1] + m_var[5]*theta_current[0]*(theta_current[1]**2) +\
-                     m_var[6]*theta_current[0]**2 + m_var[7]*(theta_current[0]**2)*theta_current[1] +\
-                     m_var[8]*(theta_current[0]**2)*(theta_current[1]**2)
-
-        O_comp_curr = [O_av_comp_curr,O_var_comp_curr]
- 
-
-        O_av_comp_prop = m_av[0] + m_av[1]*theta_proposal[1] + m_av[2]*theta_proposal[1]**2 + m_av[3]*theta_proposal[0] +\
-                     m_av[4]*theta_proposal[0]*theta_proposal[1] + m_av[5]*theta_proposal[0]*(theta_proposal[1]**2) +\
-                     m_av[6]*theta_proposal[0]**2 + m_av[7]*(theta_proposal[0]**2)*theta_proposal[1] +\
-                     m_av[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)
-
-        O_var_comp_prop = m_var[0] + m_var[1]*theta_proposal[1] + m_var[2]*theta_proposal[1]**2 + m_var[3]*theta_proposal[0] + \
-                     m_var[4]*theta_proposal[0]*theta_proposal[1] + m_var[5]*theta_proposal[0]*(theta_proposal[1]**2) + \
-                     m_var[6]*theta_proposal[0]**2 + m_var[7]*(theta_proposal[0]**2)*theta_proposal[1] + \
-                     m_var[8]*(theta_proposal[0]**2)*(theta_proposal[1]**2)         
-        
-        O_comp_prop = [O_av_comp_prop,O_var_comp_prop]
+                    reg = linear_model.LinearRegression()
+                    reg.fit(X_,y)
+                    
+                    obs_surr = reg.predict(poly.fit_transform(X_prop))
+                    return obs_surr
+                for obs_ind,obss in enumerate(obs_data):
+                    y = obs_data[:,obs_inds]
+                    
+                    obs_pred = sk_poly_fit(var_data,y,theta_proposal)
+             
+                    observables_posterior.set_value(ind+1,obs_names[obs_ind],obs_pred)       
 
     
         # Compute likelihood by multiplying probabilities of each data point
-        likelihood_current = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_curr[j])**2)/(2*data[1][j])) 
-                             for j in range(len(data))]))
-        likelihood_proposal = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(- ((data[0][j] - O_comp_prop[j])**2)/(2*data[1][j]))
-                              for j in range(len(data))]))
+        likelihood_current = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(-((data[0][j] - 
+                             Observables_posterior[ind][obs_name])**2)/(2*data[1][j])) for j,obs_name in enumerate(observables_posterior.columns.values)]))
+        likelihood_proposal = np.prod(np.array([1/(np.sqrt(2*np.pi*data[1][j])) * np.exp(-((data[0][j] -
+                              Observables_posterior[ind+1][obs_name])**2)/(2*data[1][j])) for j,obs_name in enumerate(observables_posterior.columns.values)]))
 
 
         # Compute prior probability of current and proposed mu    
@@ -2050,14 +1815,17 @@ zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
         if accept:
             # Update position
             theta_current = theta_proposal
-            hits.append(1)
-            print "%s out of %s MCMC steps completed. Prior current = %s" % (i,samples,prior_current)
+            #hits.append(1)
+            #print "%s out of %s MCMC steps completed. Prior current = %s" % (i,samples,prior_current)
         else:
             hits.append(0)
         posterior.append(theta_current)
         #probs.append(float(likelihood_current*prior_current))
         posterior.to_csv("posterior_"+'_'.join(SMIRKS_and_params)+".csv",sep=";")
         posterior.to_pickle("posterior_"+'_'.join(SMIRKS_and_params)+".pkl")
+        observables_posterior.to_csv("observables_posterior_"+'_'.join(SMIRKS_and_params)+".csv",sep=";")
+        observables_posterior.to_pickle("observables_posterior_"+'_'.join(SMIRKS_and_params)+".pkl")
+        
     #efficiency = float(sum(hits))/float(samples) 
     
     return #posterior,probs
