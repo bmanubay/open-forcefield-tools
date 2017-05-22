@@ -19,7 +19,7 @@ mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
 time_step = 0.8 #Femtoseconds
 temperature = 300 #kelvin
 friction = 1 # per picosecond
-num_steps = 7500000
+num_steps = 2500000
 trj_freq = 1000 #steps
 data_freq = 1000 #steps
 
@@ -54,10 +54,11 @@ for moldex,j in enumerate(mol_filename):
     forcefield.setParameter(params, smirks='[#1:1]-[#8]')
     for ind,i in enumerate(SMIRKS_and_params):
         params = forcefield.getParameter(smirks=i[0])
+        print params
         params[i[1]]=str(theta_current[ind])
+        print params
         forcefield.setParameter(params,smirks=i[0])
     system = forcefield.createSystem(topology, [mol])
-	
     filename_string = []
     for ind,i in enumerate(SMIRKS_and_params):
         temp = i[0]+'_'+i[1]+'_'+str(theta_current[ind])
@@ -70,10 +71,10 @@ for moldex,j in enumerate(mol_filename):
     simulation = app.Simulation(topology, system, integrator)
     simulation.context.setPositions(positions)
     simulation.context.setVelocitiesToTemperature(temperature*kelvin)
-    traj_name = 'traj4ns/'+molname[moldex]+'_'+filename_string+'.nc'
+    traj_name = 'traj_posterior/'+molname[moldex]+'_'+filename_string+'.nc'
     netcdf_reporter = NetCDFReporter(traj_name, trj_freq)
     simulation.reporters.append(netcdf_reporter)
-    simulation.reporters.append(app.StateDataReporter('StateData4ns/data_'+molname[moldex]+'_'+filename_string+'.csv', data_freq, step=True, 
+    simulation.reporters.append(app.StateDataReporter('StateData_posterior/data_'+molname[moldex]+'_'+filename_string+'.csv', data_freq, step=True, 
                                 potentialEnergy=True, temperature=True, density=True))
 
     print("Starting simulation")

@@ -16,7 +16,7 @@ mol_filename = ['Mol2_files/'+m+'.mol2' for m in molname]
 time_step = 0.8 #Femtoseconds
 temperature = 300 #kelvin
 friction = 1 # per picosecond
-num_steps = 7500000
+num_steps = 2500000
 trj_freq = 1000 #steps
 data_freq = 1000 #steps
 
