@@ -8,10 +8,16 @@ import scipy.special
 import pdb
 import pickle
 
+np.set_printoptions(threshold='nan')
+
 num_bins = 100
 torsion_r48_a = pickle.load(open( "torsion.p", "rb" ))
 plt.figure(1)
 (n1,bins1,patch1) = plt.hist(torsion_r48_a, num_bins, label='AlkEthOH_r48 histogram', color='green', normed=1)
+n1 = np.array(n1)
+n1[n1 == 0] += 1e-10
+
+
 
 ntotal = len(torsion_r48_a)
 # figure out what the width of the kernel density is. 
@@ -40,8 +46,21 @@ plt.ylabel('P(x)')
 plt.legend()
 plt.savefig('KDE.png')
 
-pmf = -kT*np.log(y) # now we have the PMF
+pmf = -kT*np.log(y)
+pmf1 = -kT*np.log(n1) # now we have the PMF
+bins1 = np.array(bins1)
 
+#(n1,bins1,patch1) = plt.hist(torsion_r48_a, num_bins, label='AlkEthOH_r48 histogram', color='green', normed=1)
+plt.figure()
+plt.hist(bins1[1:],len(bins1[1:]),weights=pmf1,label='non-smooth pmf')
+plt.plot(x,pmf,label='smooth pmf')
+plt.xlabel('x (radians)')
+plt.ylabel('Potential of Mean Force (kT)')
+plt.legend()
+plt.title('Comparison of smoothed and unsmoothed pmf')
+plt.savefig('PMF_smooth_vs_nonsmooth.png')
+
+pdb.set_trace()
 # adapted from http://stackoverflow.com/questions/4258106/how-to-calculate-a-fourier-series-in-numpy
 # complex fourier coefficients
 def cn(n,y):
@@ -86,7 +105,7 @@ for i in range(2*Ns+1):
     Sinv[i,i] = 1/S[i]
 cm = V.transpose()*Sinv*U.transpose()*np.matrix(pmf).transpose()  # get the linear constants
 cl = np.array(cm) # cast back to array for plotting
-print cl
+
 # check that it works by plotting
 y2 = cl[0]*np.ones(len(x))
 for i in range(1,Ns+1):
