@@ -15,7 +15,11 @@ torsion_r48_a = pickle.load(open( "torsion.p", "rb" ))
 plt.figure(1)
 (n1,bins1,patch1) = plt.hist(torsion_r48_a, num_bins, label='AlkEthOH_r48 histogram', color='green', normed=1)
 n1 = np.array(n1)
-n1[n1 == 0] += 1e-10
+for i,j in enumerate(n1):
+    if j == 0:
+        n1[i] = n1[i+1]
+
+print n1
 
 
 
