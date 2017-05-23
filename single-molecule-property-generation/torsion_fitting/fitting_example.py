@@ -7,6 +7,7 @@ import numpy as np
 import scipy.special
 import pdb
 import pickle
+import sys
 
 np.set_printoptions(threshold='nan')
 
@@ -21,8 +22,6 @@ n1 = np.array(n1)
 #        n1[i] = n1[i+1]
 
 #print n1
-
-
 
 ntotal = len(torsion_r48_a)
 # figure out what the width of the kernel density is. 
@@ -53,6 +52,7 @@ plt.savefig('KDE.png')
 
 pmf = -kT*np.log(y)
 pmf1 = -kT*np.log(n1) # now we have the PMF
+pmf1[pmf1==np.inf]=0
 bins1 = np.array(bins1)
 
 #(n1,bins1,patch1) = plt.hist(torsion_r48_a, num_bins, label='AlkEthOH_r48 histogram', color='green', normed=1)
@@ -65,7 +65,20 @@ plt.legend()
 plt.title('Comparison of smoothed and unsmoothed pmf')
 plt.savefig('PMF_smooth_vs_nonsmooth.png')
 
-pdb.set_trace()
+# Directly calculate fourier coefficients
+# http://mathworld.wolfram.com/FourierSeries.html
+# a0 = (1/pi)*integral(f(x) dx)|-inf to inf
+# an = (1/pi)*integral(f(x) cos(nx) dx)|-inf to inf
+# bn = (1/pi)*integral(f(x) sin(nx) dx)|-inf to inf
+a0 = (1/np.pi)*sum(np.diff(bins1)*pmf1)
+a_vals = [(1/np.pi)*sum(np.diff(bins1)*pmf1*np.cos(n*bins1[1:])) for n in np.arange(1,7)]
+b_vals = [(1/np.pi)*sum(np.diff(bins1)*pmf1*np.sin(n*bins1[1:])) for n in np.arange(1,7)]
+
+print a0
+print a_vals
+print b_vals 
+
+
 # adapted from http://stackoverflow.com/questions/4258106/how-to-calculate-a-fourier-series-in-numpy
 # complex fourier coefficients
 def cn(n,y):
@@ -73,11 +86,11 @@ def cn(n,y):
    return c.sum()/c.size
 
 def ft(x, cn, Nh):
-   f = np.array([2*cn[i]*np.exp(1j*i*x) for i in range(1,Nh+1)])
+   f = np.array([cn[i]*np.exp(1j*i*x) for i in range(1,Nh+1)])
    return f.sum()+cn[0]
 
 # generate Fourier series (complex)
-Ns = 12 # needs to be adjusted 
+Ns = 6 # needs to be adjusted 
 cf = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cf[i] = cn(i,pmf)
@@ -113,10 +126,18 @@ cl = np.array(cm) # cast back to array for plotting
 
 # check that it works by plotting
 y2 = cl[0]*np.ones(len(x))
+ans = []
+bns = []
 for i in range(1,Ns+1):
     y2 += cl[2*i-1]*np.sin(i*x)
     y2 += cl[2*i]*np.cos(i*x)
+    ans.append(cl[2*i])
+    bns.append(cl[2*i-1])
 
+print cl[0]
+print ans
+print bns
+sys.exit()
 #How different are the coeficients by the two methods?
 print "Difference between Fourier series and linear fit to finite Fourier"
 print "index   Four   Fit  Diff" 
