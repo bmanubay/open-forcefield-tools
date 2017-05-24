@@ -86,7 +86,7 @@ def ft(x, cn, Nh):
    return f.sum()+cn[0]
 
 # generate Fourier series (complex)
-Ns = 6 # needs to be adjusted 
+Ns = 12 # needs to be adjusted 
 cf = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cf[i] = cn(i,pmf)
@@ -94,6 +94,8 @@ for i in range(Ns+1):
 cfdist = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cfdist[i] = cn(i,y)
+
+print cfdist
  
 y1 = np.array([ft(xi,cf,Ns).real for xi in x])  # plot the fourier series approximation.
 plt.figure(2)
@@ -106,6 +108,7 @@ plt.ylabel('Potential of Mean Force (kT)')
 plt.savefig('PMFfitFourier.png')
 
 y1dens = np.array([ft(xi,cfdist,Ns).real for xi in x])  # plot the fourier series approximation.
+print y1dens
 plt.figure(7)
 plt.plot(x,y, label='Density')
 plt.plot(x,y1dens, label='Fourier transform')
@@ -114,7 +117,7 @@ plt.legend()
 plt.xlabel('x (radians)')
 plt.ylabel('Density function (relative likelihood)')
 plt.savefig('DensityfitFourier.png')
-
+sys.exit()
 # OK, Fourier series works pretty well.  But we actually want to do a
 # linear least square fit to a fourier series, since we want to get
 # the coefficients out.  Let's use the standard LLS formulation with
