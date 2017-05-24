@@ -93,7 +93,7 @@ for i in range(Ns+1):
 
 cfdist = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
-    cf[i] = cn(i,y)
+    cfdist[i] = cn(i,y)
  
 y1 = np.array([ft(xi,cf,Ns).real for xi in x])  # plot the fourier series approximation.
 plt.figure(2)
