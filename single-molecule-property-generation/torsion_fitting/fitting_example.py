@@ -95,6 +95,10 @@ cf = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cf[i] = cn(i,pmf)
 
+cfdist = np.zeros(Ns+1,dtype=complex)
+for i in range(Ns+1):
+    cf[i] = cn(i,y)
+ 
 y1 = np.array([ft(xi,cf,Ns).real for xi in x])  # plot the fourier series approximation.
 plt.figure(2)
 plt.plot(x,pmf, label='pmf')
@@ -104,6 +108,17 @@ plt.legend()
 plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
 plt.savefig('PMFfitFourier.png')
+
+y2 = np.array([ft(xi,cfdist,Ns).real for xi in x])  # plot the fourier series approximation.
+plt.figure()
+plt.plot(x,y, label='Density')
+plt.plot(x,y2, label='Fourier transform')
+plt.title('comparison between Density and Fourier Transform')
+plt.legend()
+plt.xlabel('x (radians)')
+plt.ylabel('Density function (relative likelihood)')
+plt.savefig('DensityfitFourier.png')
+sys.exit()
 
 # OK, Fourier series works pretty well.  But we actually want to do a
 # linear least square fit to a fourier series, since we want to get
