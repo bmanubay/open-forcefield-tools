@@ -106,7 +106,7 @@ plt.ylabel('Potential of Mean Force (kT)')
 plt.savefig('PMFfitFourier.png')
 
 y1dens = np.array([ft(xi,cfdist,Ns).real for xi in x])  # plot the fourier series approximation.
-plt.figure()
+plt.figure(7)
 plt.plot(x,y, label='Density')
 plt.plot(x,y1dens, label='Fourier transform')
 plt.title('comparison between Density and Fourier Transform')
@@ -114,7 +114,6 @@ plt.legend()
 plt.xlabel('x (radians)')
 plt.ylabel('Density function (relative likelihood)')
 plt.savefig('DensityfitFourier.png')
-sys.exit()
 
 # OK, Fourier series works pretty well.  But we actually want to do a
 # linear least square fit to a fourier series, since we want to get
@@ -177,7 +176,7 @@ plt.ylabel('Potential of Mean Force (kT)')
 plt.legend()
 plt.savefig('PMFfitLLS.png')
 
-plt.figure()
+plt.figure(5)
 plt.plot(x,y,label='Density KDE')
 plt.plot(x,y2_dens,label='LLS fit')
 plt.title('Comparison between KDE Density and linear least squares fit')
@@ -198,7 +197,7 @@ plt.legend()
 plt.savefig('Fourier_vs_LLS.png')
 
 #Compare the LLS and the fourier transform directly.
-plt.figure()
+plt.figure(6)
 plt.plot(x,y1dens,label='Fouier')
 plt.plot(x,y2_dens,label='LLS fit')
 plt.title('Comparison between Fourier and finite linear least squares fit')
