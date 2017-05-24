@@ -74,10 +74,6 @@ a0 = (1/np.pi)*sum(np.diff(bins1)*pmf1)
 a_vals = [(1/np.pi)*sum(np.diff(bins1)*pmf1*np.cos(n*bins1[1:])) for n in np.arange(1,7)]
 b_vals = [(1/np.pi)*sum(np.diff(bins1)*pmf1*np.sin(n*bins1[1:])) for n in np.arange(1,7)]
 
-print a0
-print a_vals
-print b_vals 
-
 
 # adapted from http://stackoverflow.com/questions/4258106/how-to-calculate-a-fourier-series-in-numpy
 # complex fourier coefficients
@@ -109,10 +105,10 @@ plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
 plt.savefig('PMFfitFourier.png')
 
-y2 = np.array([ft(xi,cfdist,Ns).real for xi in x])  # plot the fourier series approximation.
+y1dens = np.array([ft(xi,cfdist,Ns).real for xi in x])  # plot the fourier series approximation.
 plt.figure()
 plt.plot(x,y, label='Density')
-plt.plot(x,y2, label='Fourier transform')
+plt.plot(x,y1dens, label='Fourier transform')
 plt.title('comparison between Density and Fourier Transform')
 plt.legend()
 plt.xlabel('x (radians)')
@@ -137,7 +133,9 @@ Sinv = np.matrix(np.zeros(np.shape(Z))).transpose()  # get the inverse of the si
 for i in range(2*Ns+1):   
     Sinv[i,i] = 1/S[i]
 cm = V.transpose()*Sinv*U.transpose()*np.matrix(pmf).transpose()  # get the linear constants
+cmdens = V.transpose()*Sinv*U.transpose()*np.matrix(y).transpose()  # get the linear constants
 cl = np.array(cm) # cast back to array for plotting
+cldens = np.array(cmdens)
 
 # check that it works by plotting
 y2 = cl[0]*np.ones(len(x))
@@ -148,11 +146,15 @@ for i in range(1,Ns+1):
     y2 += cl[2*i]*np.cos(i*x)
     ans.append(cl[2*i])
     bns.append(cl[2*i-1])
+y2_dens = cldens[0]*np.ones(len(x))
+ans_dens = []
+bns_dens = []
+for i in range(1,Ns+1):
+    y2_dens += cldens[2*i-1]*np.sin(i*x)
+    y2_dens += cldens[2*i]*np.cos(i*x)
+    ans_dens.append(cldens[2*i])
+    bns_dens.append(cldens[2*i-1])
 
-print cl[0]
-print ans
-print bns
-sys.exit()
 #How different are the coeficients by the two methods?
 print "Difference between Fourier series and linear fit to finite Fourier"
 print "index   Four   Fit  Diff" 
@@ -175,6 +177,16 @@ plt.ylabel('Potential of Mean Force (kT)')
 plt.legend()
 plt.savefig('PMFfitLLS.png')
 
+plt.figure()
+plt.plot(x,y,label='Density KDE')
+plt.plot(x,y2_dens,label='LLS fit')
+plt.title('Comparison between KDE Density and linear least squares fit')
+plt.xlabel('x (radians)')
+plt.ylabel('Density (relative likelihood)')
+plt.legend()
+plt.savefig('DensityfitLLS.png')
+
+
 #Compare the LLS and the fourier transform directly.
 plt.figure(4)
 plt.plot(x,y1,label='Fouier')
@@ -184,7 +196,16 @@ plt.xlabel('x (radians)')
 plt.ylabel('Potential of Mean Force (kT)')
 plt.legend()
 plt.savefig('Fourier_vs_LLS.png')
-print "the same!"
+
+#Compare the LLS and the fourier transform directly.
+plt.figure()
+plt.plot(x,y1dens,label='Fouier')
+plt.plot(x,y2_dens,label='LLS fit')
+plt.title('Comparison between Fourier and finite linear least squares fit')
+plt.xlabel('x (radians)')
+plt.ylabel('Density (relative likelihood)')
+plt.legend()
+plt.savefig('Fourier_vs_LLS_density.png')
 
 # determine the covariance matrix for the fitting parameters
 dev = pmf - np.array(ZM*cm).transpose()
