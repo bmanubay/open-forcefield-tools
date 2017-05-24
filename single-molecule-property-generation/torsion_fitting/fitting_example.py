@@ -86,7 +86,7 @@ def ft(x, cn, Nh):
    return f.sum()+cn[0]
 
 # generate Fourier series (complex)
-Ns = 12 # needs to be adjusted 
+Ns = 24 # needs to be adjusted 
 cf = np.zeros(Ns+1,dtype=complex)
 for i in range(Ns+1):
     cf[i] = cn(i,pmf)
