@@ -196,7 +196,7 @@ ax.legend()
 
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit_MBAR.png')
-sys.exit()
+
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -228,7 +228,12 @@ surf = ax.plot_surface(xxm, yym, zz_varm,cmap=cm.gist_earth, rstride=1, cstride=
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('MBAR expectation of variance of bond length distribution - (A^2)')
-ax.plot3D(x_varm, y_varm, z_varm, "o")
+ax.plot3D(x_varm, y_varm, z_varm, "o",label='MBAR data')
+ax.plot3D(x_var, y_var, z_var, "o",label='Simulation data')
+ax.set_xlim([x_varm.min(),x_varm.max()])
+ax.set_ylim([y_varm.min(),y_varm.max()])
+ax.set_zlim([z_varm.min(),z_varm.max()])
+ax.legend()
 
 #for i in np.arange(0, len(x_av)):
 #    ax.plot([x_var[i],x_var[i]], [y_var[i],y_var[i]], [z_var[i]-z_var_var[i], z_var[i]+z_var_var[i]], marker="_")
