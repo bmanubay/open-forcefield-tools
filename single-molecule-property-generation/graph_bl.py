@@ -112,6 +112,8 @@ zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
 GGm = poly_matrix(xxm.ravel(), yym.ravel(), ordr)
 zz_avm = np.reshape(np.dot(GGm, m_avm), xxm.shape)
 zz_varm = np.reshape(np.dot(GGm, m_varm), xxm.shape)
+zz_avcheck =  np.reshape(np.dot(GGm, m_av), xxm.shape)
+zz_varcheck = np.reshape(np.dot(GGm, m_var), xxm.shape)
 
 zz_av_comp = m_av[0] + m_av[1]*yy + m_av[2]*yy**2 + m_av[3]*xx + m_av[4]*xx*yy + m_av[5]*xx*(yy**2) + m_av[6]*xx**2 + m_av[7]*(xx**2)*yy + m_av[8]*(xx**2)*(yy**2)
 
@@ -140,18 +142,18 @@ zz_var_unc = np.apply_along_axis(np.var,0,zz_var_comp_boots)
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
-rgb = ls.shade(zz_av, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+rgb = ls.shade(zz_avcheck, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
 rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
 #heatmap = ax.pcolor(zz_av, cmap=rgb)                  
 #plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
-surf = ax.plot_surface(xx, yy, zz_av, rstride=1, cstride=1, facecolors=rgb,
+surf = ax.plot_surface(xxm, yym, zz_avcheck, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
 surf1 = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgbm,
                         linewidth=0, antialiased=False, shade=False)
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Average of bond length distribution - (A)')
-ax.plot3D(x_av, y_av, z_av, "o",label="Simulation data")
+#ax.plot3D(x_av, y_av, z_av, "o",label="Simulation data")
 ax.plot3D(x_avm,y_avm,z_avm,"o",label="MBAR data")
 #ax.set_xlim([x_avm.min(),x_avm.max()])
 #ax.set_ylim([y_avm.min(),y_avm.max()])
@@ -173,7 +175,7 @@ zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
 
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
-
+sys.exit()
 
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
