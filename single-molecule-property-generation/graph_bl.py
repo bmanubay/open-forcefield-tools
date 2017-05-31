@@ -26,18 +26,32 @@ import pdb
 
 from sklearn.utils import resample
 
+import ast
+
 df = pd.read_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
+
+df1 = pd.read_csv('AlkEthOH_c1143_C-H_bl_stats_MBAR.csv',sep=';')
+
+df1['param_values'] = df1['param_values'].apply(ast.literal_eval)
+df1[['k_values', 'length_values']] = df1['param_values'].apply(pd.Series)
+df1.k_values = df1.k_values.astype(float)
+df1.length_values = df1.length_values.astype(float)
+df1 = df1.drop('param_values', 1)
 
 points_av = df.as_matrix(columns=['k_values','length_values','bond_length_average'])
 points_var = df.as_matrix(columns=['k_values','length_values','bond_length_variance'])
 points_var_var = df.as_matrix(columns=['k_values','length_values','bond_length_variance_variance'])
+
+points_av_MBAR = df1.as_matrix(columns=['k_values','length_values','bond_length_average'])
+points_var_MBAR = df1.as_matrix(columns=['k_values','length_values','bond_length_variance'])
+points_av_unc_MBAR = df1.as_matrix(columns=['k_values','length_values','bond_length_average_unc'])
+points_var_unc_MBAR = df1.as_matrix(columns=['k_values','length_values','bond_length_variance_unc'])
 
 def poly_matrix(x, y, order=2):
     """ generate Matrix use with lstsq """
     ncols = (order + 1)**2
     G = np.zeros((x.size, ncols))
     ij = itertools.product(range(order+1), range(order+1))
-    print ij
     for k, (i, j) in enumerate(ij):
         G[:, k] = x**i * y**j
    
@@ -56,6 +70,20 @@ x_var, y_var, z_var = points_var.T
 
 x_var_var, y_var_var, z_var_var = points_var_var.T
 
+
+x_avm, y_avm, z_avm = points_av_MBAR.T
+#x_av, y_av = x_av - x_av[0], y_av - y_av[0]  # this improves accuracy
+
+x_varm, y_varm, z_varm = points_var_MBAR.T
+#x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
+
+x_av_uncm, y_av_uncm, z_av_uncm = points_av_unc_MBAR.T
+
+x_var_uncm, y_var_uncm, z_var_uncm = points_var_unc_MBAR.T
+
+print x_avm
+print y_avm
+
 # make Matrix:
 G = poly_matrix(x_av, y_av, ordr)
 # Solve for np.dot(G, m) = z:
@@ -65,14 +93,25 @@ m_av = np.linalg.lstsq(G, z_av)[0]
 m_var = np.linalg.lstsq(G, z_var)[0]
 
 
+Gm = poly_matrix(x_avm, y_avm, ordr)
+m_avm = np.linalg.lstsq(Gm, z_avm)[0]
+m_varm = np.linalg.lstsq(Gm, z_varm)[0]
+
 # Evaluate it on a grid...
 nx, ny = 100, 100
 xx, yy = np.meshgrid(np.linspace(x_av.min(), x_av.max(), nx),
                      np.linspace(y_av.min(), y_av.max(), ny))
 
+xxm, yym = np.meshgrid(np.linspace(x_avm.min(), x_avm.max(), nx),
+                       np.linspace(y_avm.min(), y_avm.max(), ny))
+
 GG = poly_matrix(xx.ravel(), yy.ravel(), ordr)
 zz_av = np.reshape(np.dot(GG, m_av), xx.shape)
 zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
+
+GGm = poly_matrix(xxm.ravel(), yym.ravel(), ordr)
+zz_avm = np.reshape(np.dot(GGm, m_avm), xxm.shape)
+zz_varm = np.reshape(np.dot(GGm, m_varm), xxm.shape)
 
 zz_av_comp = m_av[0] + m_av[1]*yy + m_av[2]*yy**2 + m_av[3]*xx + m_av[4]*xx*yy + m_av[5]*xx*(yy**2) + m_av[6]*xx**2 + m_av[7]*(xx**2)*yy + m_av[8]*(xx**2)*(yy**2)
 
@@ -132,6 +171,23 @@ plt.savefig('bond_length_average_vs_k_length_w_fit.png')
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
+rgb = ls.shade(zz_avm, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+#heatmap = ax.pcolor(zz_av, cmap=rgb)
+#plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
+surf = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgb,
+                       linewidth=0, antialiased=False, shade=False)
+
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('MBAR expectation of average of bond length distribution - (A)')
+ax.plot3D(x_avm, y_avm, z_avm, "o")
+
+fg.canvas.draw()
+plt.savefig('bond_length_average_vs_k_length_w_fit_MBAR.png')
+
+# Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
+fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+ls = LightSource(270, 45)
 rgb = ls.shade(zz_var, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
 surf = ax.plot_surface(xx, yy, zz_var,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
@@ -144,20 +200,33 @@ ax.plot3D(x_var, y_var, z_var, "o")
 for i in np.arange(0, len(x_av)):
     ax.plot([x_var[i],x_var[i]], [y_var[i],y_var[i]], [z_var[i]-z_var_var[i], z_var[i]+z_var_var[i]], marker="_")
 
-xx_arr = np.vstack(xx.flatten()).T[0]
-yy_arr = np.vstack(yy.flatten()).T[0]
-zz_av_comp_arr = np.vstack(zz_av_comp.flatten()).T[0]
-zz_av_unc_arr = np.vstack(zz_av_unc.flatten()).T[0]
-zz_var_comp_arr = np.vstack(zz_var_comp.flatten()).T[0]
-zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
-
-
 for i in np.arange(0, len(xx_arr)):
     ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_var_comp_arr[i]-zz_var_unc_arr[i],zz_var_comp_arr[i]+zz_var_unc_arr[i]],marker="_")
 
 fg.canvas.draw()
 plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
 
+# Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
+fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+ls = LightSource(270, 45)
+rgb = ls.shade(zz_varm, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+surf = ax.plot_surface(xxm, yym, zz_varm,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
+                       linewidth=0, antialiased=False, shade=False)
+#fg.colorbar(surf, shrink=0.5, aspect=5)
+ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
+ax.set_ylabel('Equilibrium bond length - (A)')
+ax.set_zlabel('MBAR expectation of variance of bond length distribution - (A^2)')
+ax.plot3D(x_varm, y_varm, z_varm, "o")
+
+#for i in np.arange(0, len(x_av)):
+#    ax.plot([x_var[i],x_var[i]], [y_var[i],y_var[i]], [z_var[i]-z_var_var[i], z_var[i]+z_var_var[i]], marker="_")
+
+#for i in np.arange(0, len(xx_arr)):
+#    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_var_comp_arr[i]-zz_var_unc_arr[i],zz_var_comp_arr[i]+zz_var_unc_arr[i]],marker="_")
+
+fg.canvas.draw()
+plt.savefig('bond_length_variance_vs_k_length_w_fit_MBAR.png')
+sys.exit()
 x_av,res_av,rank_av,s_av = np.linalg.lstsq(G, z_av)
 x_var,res_var,rank_var,s_var = np.linalg.lstsq(G, z_var)
 
@@ -169,7 +238,7 @@ print rank_var
 
 print res_av
 print res_var
-sys.exit()
+
 def sampler(data, samples=4, theta_init=[500,0.8], proposal_width=[10,0.05], plot=False, mu_prior_mu=0, mu_prior_sd=1.):
     """
     Outline:

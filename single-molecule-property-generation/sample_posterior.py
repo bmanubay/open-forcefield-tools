@@ -982,7 +982,7 @@ def calc_u_kn(energies,params,T=300.,):
 #print len(xyzn_tot)
 #g = timeseries.statisticalInefficiency(xyzn_tot) 
 #xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
-
+"""
 ncfiles = glob.glob('traj4ns_c1143/*.nc')
 #ncfiles = ncfiles[0:5]
 AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
@@ -1111,7 +1111,7 @@ print "Computing Expectations for E and A..."
 
 
 N_eff = mbar.computeEffectiveSampleNumber(verbose = True)
-
+"""
 #from one original sample point ((length,k) combo is (1.09,680)) we're making MBAR estimates at 8 other point to make a 3x3 grid to fit with a plane
 #New states are 3% either way in length (1.05 and 1.13) and 5% either way in k (640 and 720)
 #See hand-drawn grid for map
@@ -1498,13 +1498,14 @@ def sampler(data, mol_list, samples, theta_init, proposal_width,method, parallel
                 current_trajectories = simulate_on_cluster_for_posterior(mol_list,SMIRKS_and_params,theta_current,'slurm_posterior.sh')           
             else:
                 current_trajectories = simulate_series_for_posterior(mol_list,SMIRKS_and_params,theta_current) """
-            current_trajectories = ['traj_posterior/AlkEthOH_c1143_[#6X4:1]-[#1:2]_k_500_[#6X4:1]-[#1:2]_length_0.8_[#6X4:1]-[#6X4:2]_k_700_[#6X4:1]-[#6X4:2]_length_1.6.nc','traj_posterior/AlkEthOH_c1163_[#6X4:1]-[#1:2]_k_500_[#6X4:1]-[#1:2]_length_0.8_[#6X4:1]-[#6X4:2]_k_700_[#6X4:1]-[#6X4:2]_length_1.6.nc']
+            #current_trajectories = ['traj_posterior/AlkEthOH_c1143_[#6X4:1]-[#1:2]_k_500_[#6X4:1]-[#1:2]_length_0.8_[#6X4:1]-[#6X4:2]_k_700_[#6X4:1]-[#6X4:2]_length_1.6.nc','traj_posterior/AlkEthOH_c1163_[#6X4:1]-[#1:2]_k_500_[#6X4:1]-[#1:2]_length_0.8_[#6X4:1]-[#6X4:2]_k_700_[#6X4:1]-[#6X4:2]_length_1.6.nc']
+            current_trajectories = ['AlkEthOH_c1143.nc']
             # compute observables for current state
             all_xyz = [[] for i in mol_list]
             A_kns = [[] for i in mol_list]
             SMIRKS_inst_per_mol = [[] for i in mol_list]
             for index,ii in enumerate(current_trajectories):
-                data,xyz = read_traj(ii,1250)
+                data,xyz = read_traj(ii,6250)
                 for pos in xyz:
                     all_xyz[index].append(pos)
                 
@@ -1642,16 +1643,29 @@ def sampler(data, mol_list, samples, theta_init, proposal_width,method, parallel
             A_var_expectations = [[] for a in all_xyz]
             A_var_alt_expectations = [[] for a in all_xyz]
             dA_expectations = [[] for a in all_xyz]
+            dA_var_expectations = [[] for a in all_xyz]
             for ii,value in enumerate(all_xyz):                 
                 #do reweighting
                 #suggest new position
                 MBAR_coordinates = [[] for i in theta_current]
                 for indexx,vall in enumerate(theta_current):
                     if SMIRKS_and_params[indexx][1] == 'k':
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.025*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.025*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.05*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.05*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.075*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.075*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.10*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.10*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(theta_current[indexx]))
                     if (SMIRKS_and_params[indexx][1] == 'length') or (SMIRKS_and_params[indexx][1] == 'angle'):
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.005*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.005*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.01*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.01*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.015*float(theta_current[indexx])))
+                        MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.015*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) - 0.02*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(float(theta_current[indexx]) + 0.02*float(theta_current[indexx])))
                         MBAR_coordinates[indexx].append(str(theta_current[indexx]))
@@ -1693,17 +1707,22 @@ def sampler(data, mol_list, samples, theta_init, proposal_width,method, parallel
                     A_kn_var = [(A - A_expect[0])**2 for A in A_kn]
                                            
                     (A_var_expect, dA_var_expect) = mbar.computeExpectations(A_kn_var,state_dependent = False)  
-                    (A_var_expect_alt,dA_var_expect_alt) = mbar.computeExpectations(A_kn_var1,state_dependent = False)
+                    #(A_var_expect_alt,dA_var_expect_alt) = mbar.computeExpectations(A_kn_var1,state_dependent = False)
+                    
                     A_expectations[ii].append(A_expect)
                     A_var_expectations[ii].append(A_var_expect)
-                    A_var_alt_expectations[ii].append(A_var_expect_alt)
+                    #A_var_alt_expectations[ii].append(A_var_expect_alt)
                     dA_expectations[ii].append(dA_expect)
-        
-            print A_expectations
-            print A_var_expectations
-            print A_var_alt_expectations
-            print MBAR_moves
-            print SMIRKS_inst_per_mol
+                    dA_var_expectations[ii].append(dA_var_expect)
+            
+            df = pd.DataFrame(
+                             {'param_values': MBAR_moves,
+                              'bond_length_average': A_expectations[0][0],
+                              'bond_length_average_unc': dA_expectations[0][0],
+                              'bond_length_variance': A_var_expectations[0][0],
+                              'bond_length_variance_unc': dA_var_expectations[0][0] 
+                             })
+            df.to_csv('AlkEthOH_c1143_C-H_bl_stats_MBAR.csv',sep=';')
             pdb.set_trace()
         if (ind < 10) or (ind % 20 == 0):
             #Directly simulate the first 10 steps or every 20 after that
@@ -2123,11 +2142,11 @@ def sampler(data, mol_list, samples, theta_init, proposal_width,method, parallel
 
 #-----------------------------------------------------------------
 data = []
-mol_list = ['AlkEthOH_c1143','AlkEthOH_c1163']
-theta_init = OrderedDict([('[#6X4:1]-[#1:2]',OrderedDict([('k',500),('length',0.8)])),('[#6X4:1]-[#6X4:2]',OrderedDict([('k',700),('length',1.6)]))]) 
-proposal_width = [10,0.01,10,0.01]
+mol_list = ['AlkEthOH_c1143']#,'AlkEthOH_c1163']
+theta_init = OrderedDict([('[#6X4:1]-[#1:2]',OrderedDict([('k',680),('length',1.09)]))])#,('[#6X4:1]-[#6X4:2]',OrderedDict([('k',700),('length',1.6)]))]) 
+proposal_width = [10,0.01]#,10,0.01]
 samples=10
-sampler(data, mol_list, samples, theta_init, proposal_width,'1sim_MBAR_surr',parallel=True)
+sampler(data, mol_list, samples, theta_init, proposal_width,'1sim_MBAR_surr',parallel=False)
 
 x = np.array([a[0] for a in posterior])
 y = np.array([a[1] for a in posterior])
