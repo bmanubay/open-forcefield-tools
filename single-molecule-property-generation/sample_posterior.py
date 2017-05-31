@@ -982,8 +982,9 @@ def calc_u_kn(energies,params,T=300.,):
 #print len(xyzn_tot)
 #g = timeseries.statisticalInefficiency(xyzn_tot) 
 #xyz_sub = [xyzn_tot[timeseries.subsampleCorrelatedData(xyzn_tot,g)]]
-"""
+
 ncfiles = glob.glob('traj4ns_c1143/*.nc')
+#ncfiles = ncfiles[0:5]
 AtomDict,lst_0,lst_1,lst_2 = get_small_mol_dict(['Mol2_files/AlkEthOH_c1143.mol2'])
 a = find_smirks_instance('Mol2_files/AlkEthOH_c1143.mol2','[#6X4:1]-[#1:2]')
 obs_ind = a[0]
@@ -992,10 +993,11 @@ kval = []
 lenval = []
 bond_len_av = []
 bond_len_var = []
+bond_len_var_var = []
 for ind,name in enumerate(ncfiles):
+    print "Analyzing trajectory %s of %s" %(ind+1,len(ncfiles))  
     name_string = name.split('/')[-1].rsplit('.',1)[0].split('_')
     filt_string = filter(lambda x:x.startswith(("length", "k")), name_string) 
-    print filt_string
     for i in filt_string:
         if i.startswith('k'):
             kval.append(float(i[1:]))
@@ -1013,14 +1015,40 @@ for ind,name in enumerate(ncfiles):
     num_obs = len(bl[0]) # get number of unique angles in molecule
     timeser = [bl[:,d] for d in range(num_obs)] # re-organize data into timeseries
     A_kn = timeser[obs_ind] # pull out single angle in molecule for test case
-    bond_len_av.append(np.average(A_kn))
-    bond_len_var.append(np.var(A_kn)) 
-    
+    N = np.array([len(A_kn)],int)
+    A_av = np.average(A_kn)
+    A_var = np.var(A_kn)
+    bond_len_av.append(A_av)
+    bond_len_var.append(A_var) 
+    print "The mean of series A_kn is: %s" %(A_av)
+    print "The variance of series A_kn is: %s" %(A_var)
+    #implement bootstrapping to get variance of variance estimate
+    A_variance_boots = []
+    nBoots_work = 200
+    for n in range(nBoots_work):
+        for k in range(len(N)):
+            if N[k] > 0:
+                if (n == 0):
+                    booti = np.array(range(N[k]),int)
+                else:
+                    booti = np.random.randint(N[k], size = N[k])
+                A_variance_boots.append(np.var(A_kn[booti]))
+    #A_variance_boots = np.vstack(np.array(A_variance_boots))
+    A_var_var = np.var(A_variance_boots) 
+    bond_len_var_var.append(A_var_var) 
+    print "The variance of the variance of series A_kn is: %s" %(A_var_var)
+
+if not len(bond_len_av) == len(bond_len_var) == len(bond_len_var_var) == len(kval) == len(lenval):
+    print "[len(kval),len(lenval),len(bond_len_av),len(bond_len_var),len(bond_len_var_var)] = [%s,%s,%s,%s,%s]" %(len(kval),len(lenval),len(bond_len_av),len(bond_len_var),len(bond_len_var_var))
+    pdb.set_trace()
+else:
+    print "Storing measurements in pandas dataframe"   
 df = pd.DataFrame(
     {'k_values': kval,
      'length_values': lenval,
      'bond_length_average': bond_len_av,
-     'bond_length_variance':bond_len_var
+     'bond_length_variance': bond_len_var,
+     'bond_length_variance_variance': bond_len_var_var
     })
 df.to_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
 sys.exit()
@@ -1083,7 +1111,7 @@ print "Computing Expectations for E and A..."
 
 
 N_eff = mbar.computeEffectiveSampleNumber(verbose = True)
-"""
+
 #from one original sample point ((length,k) combo is (1.09,680)) we're making MBAR estimates at 8 other point to make a 3x3 grid to fit with a plane
 #New states are 3% either way in length (1.05 and 1.13) and 5% either way in k (640 and 720)
 #See hand-drawn grid for map

@@ -24,10 +24,13 @@ from matplotlib import cm
 from matplotlib.colors import LightSource
 import pdb
 
+from sklearn.utils import resample
+
 df = pd.read_csv('AlkEthOH_c1143_C-H_bl_stats.csv',sep=';')
 
 points_av = df.as_matrix(columns=['k_values','length_values','bond_length_average'])
 points_var = df.as_matrix(columns=['k_values','length_values','bond_length_variance'])
+points_var_var = df.as_matrix(columns=['k_values','length_values','bond_length_variance_variance'])
 
 def poly_matrix(x, y, order=2):
     """ generate Matrix use with lstsq """
@@ -36,7 +39,6 @@ def poly_matrix(x, y, order=2):
     ij = itertools.product(range(order+1), range(order+1))
     print ij
     for k, (i, j) in enumerate(ij):
-        print i,j
         G[:, k] = x**i * y**j
    
     return G
@@ -52,7 +54,7 @@ x_av, y_av, z_av = points_av.T
 x_var, y_var, z_var = points_var.T
 #x_var, y_var = x_var - x_var[0], y_var - y_var[0]  # this improves accuracy
 
-
+x_var_var, y_var_var, z_var_var = points_var_var.T
 
 # make Matrix:
 G = poly_matrix(x_av, y_av, ordr)
@@ -72,6 +74,30 @@ GG = poly_matrix(xx.ravel(), yy.ravel(), ordr)
 zz_av = np.reshape(np.dot(GG, m_av), xx.shape)
 zz_var = np.reshape(np.dot(GG, m_var), xx.shape)
 
+zz_av_comp = m_av[0] + m_av[1]*yy + m_av[2]*yy**2 + m_av[3]*xx + m_av[4]*xx*yy + m_av[5]*xx*(yy**2) + m_av[6]*xx**2 + m_av[7]*(xx**2)*yy + m_av[8]*(xx**2)*(yy**2)
+
+zz_var_comp = m_var[0] + m_var[1]*yy + m_var[2]*yy**2 + m_var[3]*xx + m_var[4]*xx*yy + m_var[5]*xx*(yy**2) + m_var[6]*xx**2 + m_var[7]*(xx**2)*yy + m_var[8]*(xx**2)*(yy**2)
+
+zz_av_comp_boots = []
+zz_var_comp_boots = []
+# Bootstrap regression for error bars
+nBoots_work = 200
+for n in range(nBoots_work):
+   if (n == 0):
+       booti_av = zz_av_comp
+       booti_var = zz_var_comp
+   else:
+       booti_av = resample(zz_av_comp)
+       booti_var = resample(zz_var_comp)
+   zz_av_comp_boots.append(booti_av)
+   zz_var_comp_boots.append(booti_var)
+
+zz_av_comp_boots = np.array(zz_av_comp_boots)
+zz_var_comp_boots = np.array(zz_var_comp_boots)
+
+zz_av_unc = np.apply_along_axis(np.var,0,zz_av_comp_boots)
+zz_var_unc = np.apply_along_axis(np.var,0,zz_var_comp_boots)
+
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -86,11 +112,22 @@ ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Average of bond length distribution - (A)')
 ax.plot3D(x_av, y_av, z_av, "o")
 
+for i in np.arange(0, len(x_av)):
+    ax.plot([x_av[i],x_av[i]], [y_av[i],y_av[i]], [z_av[i]-z_var[i], z_av[i]+z_var[i]], marker="_")
+
+xx_arr = np.vstack(xx.flatten()).T[0]
+yy_arr = np.vstack(yy.flatten()).T[0]
+zz_av_comp_arr = np.vstack(zz_av_comp.flatten()).T[0]
+zz_av_unc_arr = np.vstack(zz_av_unc.flatten()).T[0]
+zz_var_comp_arr = np.vstack(zz_var_comp.flatten()).T[0]
+zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
+
+
+for i in np.arange(0, len(xx_arr)):
+    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_av_comp_arr[i]-zz_av_unc_arr[i],zz_av_comp_arr[i]+zz_av_unc_arr[i]],marker="_")
+
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
-
-
-zz_comp = m_var[0] + m_var[1]*yy + m_var[2]*yy**2 + m_var[3]*xx + m_var[4]*xx*yy + m_var[5]*xx*(yy**2) + m_var[6]*xx**2 + m_var[7]*(xx**2)*yy + m_var[8]*(xx**2)*(yy**2)
 
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
@@ -103,6 +140,20 @@ ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Variance of bond length distribution - (A^2)')
 ax.plot3D(x_var, y_var, z_var, "o")
+
+for i in np.arange(0, len(x_av)):
+    ax.plot([x_var[i],x_var[i]], [y_var[i],y_var[i]], [z_var[i]-z_var_var[i], z_var[i]+z_var_var[i]], marker="_")
+
+xx_arr = np.vstack(xx.flatten()).T[0]
+yy_arr = np.vstack(yy.flatten()).T[0]
+zz_av_comp_arr = np.vstack(zz_av_comp.flatten()).T[0]
+zz_av_unc_arr = np.vstack(zz_av_unc.flatten()).T[0]
+zz_var_comp_arr = np.vstack(zz_var_comp.flatten()).T[0]
+zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
+
+
+for i in np.arange(0, len(xx_arr)):
+    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_var_comp_arr[i]-zz_var_unc_arr[i],zz_var_comp_arr[i]+zz_var_unc_arr[i]],marker="_")
 
 fg.canvas.draw()
 plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
@@ -118,7 +169,7 @@ print rank_var
 
 print res_av
 print res_var
-
+sys.exit()
 def sampler(data, samples=4, theta_init=[500,0.8], proposal_width=[10,0.05], plot=False, mu_prior_mu=0, mu_prior_sd=1.):
     """
     Outline:
