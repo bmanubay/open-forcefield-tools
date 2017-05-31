@@ -160,7 +160,7 @@ ax.plot3D(x_avm,y_avm,z_avm,"o",label="MBAR data")
 #ax.set_zlim([z_avm.min(),z_avm.max()])
 ax.legend()
 for i in np.arange(0, len(x_avm)):
-    ax.plot([x_avm[i],x_avm[i]], [y_avm[i],y_avm[i]], [z_av[i]-z_av_uncm[i], z_av[i]+z_av_uncm[i]], marker="_")
+    ax.plot([x_avm[i],x_avm[i]], [y_avm[i],y_avm[i]], [z_avm[i]-z_av_uncm[i], z_avm[i]+z_av_uncm[i]], marker="_")
 """
 xx_arr = np.vstack(xx.flatten()).T[0]
 yy_arr = np.vstack(yy.flatten()).T[0]
@@ -241,7 +241,7 @@ ax.plot3D(x_varm, y_varm, z_varm, "o",label='MBAR data')
 ax.legend()
 
 for i in np.arange(0, len(x_varm)):
-    ax.plot([x_varm[i],x_varm[i]], [y_varm[i],y_varm[i]], [z_varm[i]-z_var_uncm[i], z_var[i]+z_var_uncm[i]], marker="_")
+    ax.plot([x_varm[i],x_varm[i]], [y_varm[i],y_varm[i]], [z_varm[i]-z_var_uncm[i], z_varm[i]+z_var_uncm[i]], marker="_")
 
 #for i in np.arange(0, len(xx_arr)):
 #    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_var_comp_arr[i]-zz_var_unc_arr[i],zz_var_comp_arr[i]+zz_var_unc_arr[i]],marker="_")
