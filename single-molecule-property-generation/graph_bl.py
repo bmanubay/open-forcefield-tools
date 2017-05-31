@@ -146,8 +146,8 @@ rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
 #plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
 surf = ax.plot_surface(xx, yy, zz_av, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
-surf1 = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgbm,
-                       linewidth=0, antialiased=False, shade=False)
+#surf1 = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgbm,
+#                       linewidth=0, antialiased=False, shade=False)
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Average of bond length distribution - (A)')
