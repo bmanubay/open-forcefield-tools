@@ -141,7 +141,7 @@ zz_var_unc = np.apply_along_axis(np.var,0,zz_var_comp_boots)
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
 rgb = ls.shade(zz_av, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
-rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
+#rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
 #heatmap = ax.pcolor(zz_av, cmap=rgb)                  
 #plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
 surf = ax.plot_surface(xx, yy, zz_av, rstride=1, cstride=1, facecolors=rgb,
