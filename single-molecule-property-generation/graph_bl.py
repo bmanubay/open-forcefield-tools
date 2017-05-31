@@ -152,7 +152,7 @@ ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Average of bond length distribution - (A)')
 ax.plot3D(x_av, y_av, z_av, "o",label="Simulation data")
-ax.plot3D(x_avm,y_avm,z_avm,"o",label="MBAR data")
+#ax.plot3D(x_avm,y_avm,z_avm,"o",label="MBAR data")
 ax.set_xlim([x_avm.min(),x_avm.max()])
 ax.set_ylim([y_avm.min(),y_avm.max()])
 ax.set_zlim([z_avm.min(),z_avm.max()])
@@ -173,7 +173,8 @@ zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
 
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
-sys.exit()
+
+
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -186,11 +187,15 @@ surf = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgb,
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('MBAR expectation of average of bond length distribution - (A)')
-ax.plot3D(x_avm, y_avm, z_avm, "o")
+ax.plot3D(x_avm, y_avm, z_avm, "o",label='MBAR data')
+ax.set_xlim([x_avm.min(),x_avm.max()])
+ax.set_ylim([y_avm.min(),y_avm.max()])
+ax.set_zlim([z_avm.min(),z_avm.max()])
+ax.legend()
 
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit_MBAR.png')
-
+sys.exit()
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
