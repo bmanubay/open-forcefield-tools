@@ -159,16 +159,16 @@ ax.plot3D(x_avm,y_avm,z_avm,"o",label="MBAR data")
 #ax.set_ylim([y_avm.min(),y_avm.max()])
 #ax.set_zlim([z_avm.min(),z_avm.max()])
 ax.legend()
-#for i in np.arange(0, len(x_av)):
-#    ax.plot([x_av[i],x_av[i]], [y_av[i],y_av[i]], [z_av[i]-z_var[i], z_av[i]+z_var[i]], marker="_")
-
+for i in np.arange(0, len(x_avm)):
+    ax.plot([x_avm[i],x_avm[i]], [y_avm[i],y_avm[i]], [z_av[i]-z_av_uncm[i], z_av[i]+z_av_uncm[i]], marker="_")
+"""
 xx_arr = np.vstack(xx.flatten()).T[0]
 yy_arr = np.vstack(yy.flatten()).T[0]
 zz_av_comp_arr = np.vstack(zz_av_comp.flatten()).T[0]
 zz_av_unc_arr = np.vstack(zz_av_unc.flatten()).T[0]
 zz_var_comp_arr = np.vstack(zz_var_comp.flatten()).T[0]
 zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
-
+"""
 
 #for i in np.arange(0, len(xx_arr)):
 #    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_av_comp_arr[i]-zz_av_unc_arr[i],zz_av_comp_arr[i]+zz_av_unc_arr[i]],marker="_")
@@ -176,7 +176,7 @@ zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
 
-
+"""
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -222,7 +222,7 @@ ax.legend()
 
 fg.canvas.draw()
 plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
-
+"""
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
@@ -240,8 +240,8 @@ ax.plot3D(x_varm, y_varm, z_varm, "o",label='MBAR data')
 #ax.set_zlim([z_varm.min(),z_varm.max()])
 ax.legend()
 
-#for i in np.arange(0, len(x_av)):
-#    ax.plot([x_var[i],x_var[i]], [y_var[i],y_var[i]], [z_var[i]-z_var_var[i], z_var[i]+z_var_var[i]], marker="_")
+for i in np.arange(0, len(x_varm)):
+    ax.plot([x_varm[i],x_varm[i]], [y_varm[i],y_varm[i]], [z_varm[i]-z_var_uncm[i], z_var[i]+z_var_uncm[i]], marker="_")
 
 #for i in np.arange(0, len(xx_arr)):
 #    ax.plot([xx_arr[i],xx_arr[i]], [yy_arr[i],yy_arr[i]], zs=[zz_var_comp_arr[i]-zz_var_unc_arr[i],zz_var_comp_arr[i]+zz_var_unc_arr[i]],marker="_")
