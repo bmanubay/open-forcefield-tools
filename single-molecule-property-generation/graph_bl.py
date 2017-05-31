@@ -143,13 +143,13 @@ zz_var_unc = np.apply_along_axis(np.var,0,zz_var_comp_boots)
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
 rgb = ls.shade(zz_avcheck, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
-rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
+#rgbm = ls.shade(zz_avm, cmap=cm.jet, vert_exag=0.1, blend_mode='soft')
 #heatmap = ax.pcolor(zz_av, cmap=rgb)                  
 #plt.colorbar(mappable=heatmap)    # put the major ticks at the middle of each cell
 surf = ax.plot_surface(xxm, yym, zz_avcheck, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
-surf1 = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgbm,
-                        linewidth=0, antialiased=False, shade=False)
+#surf1 = ax.plot_surface(xxm, yym, zz_avm, rstride=1, cstride=1, facecolors=rgbm,
+#                        linewidth=0, antialiased=False, shade=False)
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('Average of bond length distribution - (A)')
@@ -175,7 +175,7 @@ zz_var_unc_arr = np.vstack(zz_var_unc.flatten()).T[0]
 
 fg.canvas.draw()
 plt.savefig('bond_length_average_vs_k_length_w_fit.png')
-sys.exit()
+
 
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
@@ -226,18 +226,18 @@ plt.savefig('bond_length_variance_vs_k_length_w_fit.png')
 # Plotting (see http://matplotlib.org/examples/mplot3d/custom_shaded_3d_surface.html):
 fg, ax = plt.subplots(subplot_kw=dict(projection='3d'))
 ls = LightSource(270, 45)
-rgb = ls.shade(zz_varm, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
-surf = ax.plot_surface(xxm, yym, zz_varm,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
+rgb = ls.shade(zz_varcheck, cmap=cm.gist_earth, vert_exag=0.1, blend_mode='soft')
+surf = ax.plot_surface(xxm, yym, zz_varcheck,cmap=cm.gist_earth, rstride=1, cstride=1, facecolors=rgb,
                        linewidth=0, antialiased=False, shade=False)
 #fg.colorbar(surf, shrink=0.5, aspect=5)
 ax.set_xlabel('Bonded force constant - (kcal/mol/A^2)')
 ax.set_ylabel('Equilibrium bond length - (A)')
 ax.set_zlabel('MBAR expectation of variance of bond length distribution - (A^2)')
 ax.plot3D(x_varm, y_varm, z_varm, "o",label='MBAR data')
-ax.plot3D(x_var, y_var, z_var, "o",label='Simulation data')
-ax.set_xlim([x_varm.min(),x_varm.max()])
-ax.set_ylim([y_varm.min(),y_varm.max()])
-ax.set_zlim([z_varm.min(),z_varm.max()])
+#ax.plot3D(x_var, y_var, z_var, "o",label='Simulation data')
+#ax.set_xlim([x_varm.min(),x_varm.max()])
+#ax.set_ylim([y_varm.min(),y_varm.max()])
+#ax.set_zlim([z_varm.min(),z_varm.max()])
 ax.legend()
 
 #for i in np.arange(0, len(x_av)):
